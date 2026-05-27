@@ -1,0 +1,9 @@
+numpy
+scipy
+matplotlib
+py4DSTEM
+hyperspy
+scikit-learn
+pandas
+tifffile
+ipywidgets
