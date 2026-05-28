@@ -19,6 +19,7 @@ from sklearn.manifold import TSNE
 from sklearn.cluster import DBSCAN, HDBSCAN, OPTICS
 from collections import Counter, defaultdict
 from scipy.spatial.distance import pdist, squareform
+from shapely.geometry import Polygon, Point
 
 # Import package modules
 from .utils import (

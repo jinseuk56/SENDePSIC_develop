@@ -1,6 +1,8 @@
 import os
 import pickle
 import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.patches import Patch
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import normalize
 
@@ -39,6 +41,46 @@ def assign_rgb_colors(cluster_centers, mapping_style='orthorhombic'):
         
     return cluster_rgbs, cluster_names
 
+def plot_orientation_image(results):
+    """Plots the final RGB image map, including black unindexed pixels."""
+    rgb_image = results["rgb_image"]
+    labels_grid = results["labels_grid"]
+    
+    fig, ax = plt.subplots(figsize=(8, 6.5), dpi=150)
+    im = ax.imshow(rgb_image, origin='upper')
+    
+    legend_elements = []
+    total_pixels = rgb_image.shape[0] * rgb_image.shape[1]
+    
+    # Plot the valid clusters
+    if len(results["centers"]) > 0:
+        for i in range(len(results["centers"])):
+            c_rgb = results["cluster_rgbs"][i]
+            c_name = results["cluster_names"][i]
+            # Calculate percentage relative to the WHOLE image
+            pct = (np.sum(labels_grid == i) / total_pixels) * 100
+            legend_elements.append(Patch(
+                facecolor=c_rgb, edgecolor='black', 
+                label=f'{c_name} ({pct:.1f}%) ({results["centers"][i][0]:.2f}, {results["centers"][i][1]:.2f}, {results["centers"][i][2]:.2f})'
+            ))
+            
+    # Calculate and plot the black (unindexed) pixels
+    unindexed_pixels = np.sum(labels_grid == -1)
+    if unindexed_pixels > 0:
+        unindexed_pct = (unindexed_pixels / total_pixels) * 100
+        threshold_val = results["threshold"]
+        legend_elements.append(Patch(
+            facecolor='black', edgecolor='gray', 
+            label=f'Unindexed (<{threshold_val}) ({unindexed_pct:.1f}%)'
+        ))
+        
+    ax.legend(handles=legend_elements, loc='center left', bbox_to_anchor=(1.05, 0.5), title="Dominant Planes")
+    ax.set_xlabel('X Scan (Pixels)')
+    ax.set_ylabel('Y Scan (Pixels)')
+    ax.set_title('ACOM Crystal Orientation Map')
+    
+    plt.tight_layout()
+    plt.show()
 
 def map_3d_orientations(hkl_map_3d, num_clusters=3, crystal_system='orthorhombic', color_style='orthorhombic', threshold=0.01):
     """

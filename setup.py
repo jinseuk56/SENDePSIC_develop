@@ -8,7 +8,7 @@ setup(
     author_email="jinseuk56@gmail.com",
     packages=find_packages(),
     install_requires=[
-        "numpy",
+        "numpy<2.0",
         "scipy",
         "matplotlib",
         "py4DSTEM",
@@ -17,6 +17,7 @@ setup(
         "pandas",
         "tifffile",
         "ipywidgets",
+        "shapely",
     ],
     classifiers=[
         "Programming Language :: Python :: 3",

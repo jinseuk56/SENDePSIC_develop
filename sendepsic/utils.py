@@ -5,12 +5,7 @@ import hyperspy.api as hs
 import tifffile
 from scipy.signal import find_peaks
 import py4DSTEM
-
-try:
-    from shapely.geometry import Point, LineString, Polygon
-    HAS_SHAPELY = True
-except ImportError:
-    HAS_SHAPELY = False
+from shapely.geometry import Point, LineString, Polygon
 
 def data_load_3d(adr, crop=None, rescale=True, DM_file=True, rebin_256=False, verbose=True):
     """
@@ -235,14 +230,14 @@ def profile_peak(line, k_step, crop=None, peak_prominence=1E-10, max_num_peaks=3
     line /= np.max(line)
     peaks = find_peaks(line, prominence=peak_prominence)
     peaks, properties = peaks[0], peaks[1]['prominences']
-    print(properties)
+    # print(properties)
     peak_argsort = np.argsort(properties)    
     peak_ind = peaks[:]
     peak_values = line[peak_ind]
     peak_values = peak_values[peak_argsort]
     peaks = peaks * k_step
     peaks = peaks + crop_start * k_step
-    print(peaks)
+    # print(peaks)
     peaks = peaks[peak_argsort][-max_num_peaks:]
     return peaks
 
@@ -323,136 +318,133 @@ def mmad_score(df_data, experimental_cols, target_structures=None):
         results_mmad_subset[lv_col_name] = sorted_scores
     return results_mmad_subset
 
-if HAS_SHAPELY:
-    class ConcaveHull(object):
-        def __init__(self, points, k):
-            if isinstance(points, np.ndarray):
-                self.data_set = points
-            elif isinstance(points, list):
-                self.data_set = np.array(points)
-            else:
-                raise ValueError('Please provide an [N,2] numpy array or a list of lists.')
+# Concave hull
+# original code: https://github.com/M-Lin-DM/Concave-Hulls
+# slightly modified by J. Ryu
+class ConcaveHull(object):
+    def __init__(self, points, k):
+        if isinstance(points, np.ndarray):
+            self.data_set = points
+        elif isinstance(points, list):
+            self.data_set = np.array(points)
+        else:
+            raise ValueError('Please provide an [N,2] numpy array or a list of lists.')
 
-            self.data_set = np.unique(self.data_set, axis=0)
-            self.indices = np.ones(self.data_set.shape[0], dtype=bool)
-            self.k = k
+        self.data_set = np.unique(self.data_set, axis=0)
+        self.indices = np.ones(self.data_set.shape[0], dtype=bool)
+        self.k = k
 
-        @staticmethod
-        def dist_pt_to_group(a, b):
-            return np.sqrt(np.sum(np.square(np.subtract(a, b)), axis=1))
+    @staticmethod
+    def dist_pt_to_group(a, b):
+        return np.sqrt(np.sum(np.square(np.subtract(a, b)), axis=1))
 
-        @staticmethod
-        def get_lowest_latitude_index(points):
-            indices = np.argsort(points[:, 1])
-            return indices[0]
+    @staticmethod
+    def get_lowest_latitude_index(points):
+        indices = np.argsort(points[:, 1])
+        return indices[0]
 
-        @staticmethod
-        def norm_array(v):
-            norms = np.array(np.sqrt(np.sum(np.square(v), axis=1)), ndmin=2).transpose()
-            return np.divide(v, norms)
+    @staticmethod
+    def norm_array(v):
+        norms = np.array(np.sqrt(np.sum(np.square(v), axis=1)), ndmin=2).transpose()
+        return np.divide(v, norms)
 
-        @staticmethod
-        def norm(v):
-            norms = np.array(np.sqrt(np.sum(np.square(v))))
-            return v / norms
+    @staticmethod
+    def norm(v):
+        norms = np.array(np.sqrt(np.sum(np.square(v))))
+        return v / norms
 
-        def get_k_nearest(self, ix, k):
-            ixs = self.indices
-            base_indices = np.arange(len(ixs))[ixs]
-            distances = self.dist_pt_to_group(self.data_set[ixs, :], self.data_set[ix, :])
-            sorted_indices = np.argsort(distances)
-            kk = min(k, len(sorted_indices))
-            k_nearest = sorted_indices[range(kk)]
-            return base_indices[k_nearest]
+    def get_k_nearest(self, ix, k):
+        ixs = self.indices
+        base_indices = np.arange(len(ixs))[ixs]
+        distances = self.dist_pt_to_group(self.data_set[ixs, :], self.data_set[ix, :])
+        sorted_indices = np.argsort(distances)
+        kk = min(k, len(sorted_indices))
+        k_nearest = sorted_indices[range(kk)]
+        return base_indices[k_nearest]
 
-        def clockwise_angles(self, last, ix, ixs, first):
-            if first == 1:
-                last_norm = np.array([-1, 0], ndmin=2)
-            elif first == 0:
-                last_norm = self.norm(np.subtract(self.data_set[last, :], self.data_set[ix,:]))
-            ixs_norm = self.norm_array(np.subtract(self.data_set[ixs, :], self.data_set[ix,:]))
-            ang = np.zeros((ixs.shape[0], 1))
-            for j in range(ixs.shape[0]):
-                theta = np.arccos(np.dot(last_norm, ixs_norm[j, :]))
-                z_comp = np.cross(last_norm, ixs_norm[j, :])
-                if z_comp <= 0:
-                    ang[j, 0] = theta
-                elif z_comp > 0:
-                    ang[j, 0] = 2 * np.pi - theta
-            return np.squeeze(ang)
+    def clockwise_angles(self, last, ix, ixs, first):
+        if first == 1:
+            last_norm = np.array([-1.0, 0.0])
+        elif first == 0:
+            last_norm = self.norm(np.subtract(self.data_set[last, :], self.data_set[ix,:]))
+        ixs_norm = self.norm_array(np.subtract(self.data_set[ixs, :], self.data_set[ix,:]))
+        ang = np.zeros((ixs.shape[0], 1))
+        for j in range(ixs.shape[0]):
+            dot_val = np.clip(np.dot(last_norm, ixs_norm[j, :]), -1.0, 1.0)
+            theta = np.arccos(dot_val)
+            z_comp = last_norm[0] * ixs_norm[j, 1] - last_norm[1] * ixs_norm[j, 0]
+            if z_comp <= 0:
+                ang[j, 0] = theta
+            elif z_comp > 0:
+                ang[j, 0] = 2 * np.pi - theta
+        return np.squeeze(ang)
 
-        def recurse_calculate(self):
-            recurse = ConcaveHull(self.data_set, self.k + 1)
-            if recurse.k >= self.data_set.shape[0]:
-                print(" max k reached, at k={0}".format(recurse.k))
-                return None
-            return recurse.calculate()
-
-        def calculate(self):
-            if self.data_set.shape[0] < 3:
-                return None
-            if self.data_set.shape[0] == 3:
-                return self.data_set
-
-            kk = min(self.k, self.data_set.shape[0])
-            first_point = self.get_lowest_latitude_index(self.data_set)
-            current_point = first_point
-
-            hull = np.reshape(np.array(self.data_set[first_point, :]), (1, 2))
-            test_hull = hull
-            self.indices[first_point] = False
-
-            step = 2
-            stop = 2 + kk
-
-            while ((current_point != first_point) or (step == 2)) and len(self.indices[self.indices]) > 0:
-                if step == stop:
-                    self.indices[first_point] = True
-                knn = self.get_k_nearest(current_point, kk)
-
-                if step == 2:
-                    angles = self.clockwise_angles(1, current_point, knn, 1)
-                else:
-                    angles = self.clockwise_angles(last_point, current_point, knn, 0)
-
-                candidates = np.argsort(-angles)
-                i = 0
-                invalid_hull = True
-
-                while invalid_hull and i < len(candidates):
-                    candidate = candidates[i]
-                    next_point = np.reshape(self.data_set[knn[candidate], :], (1, 2))
-                    test_hull = np.append(hull, next_point, axis=0)
-                    line = LineString(test_hull)
-                    invalid_hull = not line.is_simple
-                    i += 1
-
-                if invalid_hull:
-                    return self.recurse_calculate()
-
-                last_point = current_point
-                current_point = knn[candidate]
-                hull = test_hull
-                self.indices[current_point] = False
-                step += 1
-
-            poly = Polygon(hull)
-            count = 0
-            total = self.data_set.shape[0]
-            for ix in range(total):
-                pt = Point(self.data_set[ix, :])
-                if poly.intersects(pt) or pt.within(poly):
-                    count += 1
-                else:
-                    continue
-
-            if count == total:
-                return hull
-            else:
-                return self.recurse_calculate()
-else:
-    class ConcaveHull(object):
-        def __init__(self, points, k):
-            raise ImportError("shapely is required for ConcaveHull analysis.")
-        def calculate(self):
+    def recurse_calculate(self):
+        recurse = ConcaveHull(self.data_set, self.k + 1)
+        if recurse.k >= self.data_set.shape[0]:
+            print(" max k reached, at k={0}".format(recurse.k))
             return None
+        return recurse.calculate()
+
+    def calculate(self):
+        if self.data_set.shape[0] < 3:
+            return None
+        if self.data_set.shape[0] == 3:
+            return self.data_set
+
+        kk = min(self.k, self.data_set.shape[0])
+        first_point = self.get_lowest_latitude_index(self.data_set)
+        current_point = first_point
+
+        hull = np.reshape(np.array(self.data_set[first_point, :]), (1, 2))
+        test_hull = hull
+        self.indices[first_point] = False
+
+        step = 2
+        stop = 2 + kk
+
+        while ((current_point != first_point) or (step == 2)) and len(self.indices[self.indices]) > 0:
+            if step == stop:
+                self.indices[first_point] = True
+            knn = self.get_k_nearest(current_point, kk)
+
+            if step == 2:
+                angles = self.clockwise_angles(1, current_point, knn, 1)
+            else:
+                angles = self.clockwise_angles(last_point, current_point, knn, 0)
+
+            candidates = np.argsort(-angles)
+            i = 0
+            invalid_hull = True
+
+            while invalid_hull and i < len(candidates):
+                candidate = candidates[i]
+                next_point = np.reshape(self.data_set[knn[candidate], :], (1, 2))
+                test_hull = np.append(hull, next_point, axis=0)
+                line = LineString(test_hull)
+                invalid_hull = not line.is_simple
+                i += 1
+
+            if invalid_hull:
+                return self.recurse_calculate()
+
+            last_point = current_point
+            current_point = knn[candidate]
+            hull = test_hull
+            self.indices[current_point] = False
+            step += 1
+
+        poly = Polygon(hull)
+        count = 0
+        total = self.data_set.shape[0]
+        for ix in range(total):
+            pt = Point(self.data_set[ix, :])
+            if poly.intersects(pt) or pt.within(poly):
+                count += 1
+            else:
+                continue
+
+        if count == total:
+            return hull
+        else:
+            return self.recurse_calculate()
