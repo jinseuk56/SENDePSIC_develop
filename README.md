@@ -1,6 +1,6 @@
 # SENDePSIC
 
-Atomic structure analysis with radial (azimuthal) average & variance profiles. Developed for the ePSIC data processing workflow.
+Atomic structure analysis with 3D radial average or radial variance profile datasets. It was developed originally for the ePSIC data processing workflow (visit [ePSIC's data processing workflow](https://github.com/ePSIC-DLS/User-Notebooks/tree/master/ePSIC_Standard_Notebooks)). However, it can be generally used for any profile dataset.
 
 ## Installation
 
@@ -9,16 +9,14 @@ To install the package locally in editable mode:
 pip install -e .
 ```
 
-## Structure
+## How to use
+Please see jupyter notebooks in SENDePSIC/execution_notebook
 
-- `sendepsic.radial_profile.radial_profile_analysis`: Class for analyzing radial average & variance profiles from 4D-STEM / EELS-SI data, featuring optimized, in-memory NMF decomposition.
-- `sendepsic.feature_extract.feature_extract`: Dimensionality reduction & clustering helper tool.
-- `sendepsic.phase.phase_analysis`: Class for crystallographic phase matching.
-- `sendepsic.acom`: Utilities for dominant orientation clustering & mapping.
-- `sendepsic.synthesis.comprehensive_scientific_synthesis`: Function to generate an integrated scientific summary from RPA, Phase matching, and ACOM data.
-- `sendepsic.utils`: Common utilities for data loading, processing, and visualization.
+## Analysis for concurrent 4DSTEM-EDX datasets collected at ePSIC, Diamond Light Source
+![EDX](img/EDX_path.png) ![EDX](img/EDX_data.png)  
+The EDX data must be stored as shown in the images above (~/subfolder/EDX/\*.rpl)
 
-## Compatibility Notes
+## Compatibility notes
 
 ### NumPy 2.x Support
 While this package uses third-party libraries (such as `py4DSTEM` and `exspy`) that contain legacy references incompatible with NumPy 2.x, we provide out-of-the-box compatibility:
