@@ -653,6 +653,11 @@ class phase_analysis:
                         title=f"Sub Index [{sub_idx}]: Percentage", is_percentage=True
                     )
 
+        self.global_hist_df = global_hist_df
+        self.global_prox_df = global_prox_df
+        self.sub_index_histograms = sub_index_histograms
+        self.sub_index_proximities = sub_index_proximities
+
         return global_hist_df, global_prox_df, sub_index_histograms, sub_index_proximities
 
     # Updated to accept a 'title' parameter
@@ -889,6 +894,83 @@ class phase_analysis:
             report.append("## 2. Match Scores & Best Allocations")
             report.append("*MMAD phase matching has not been executed yet.*")
             report.append("")
+
+        if hasattr(self, 'mean_areas') and self.mean_areas is not None:
+            report.append("## 4. Cluster Size and Area Analysis")
+            label_list = np.unique(self.df_summary['LV'].values)
+            label_list = np.sort(label_list)
+            sub_index_list = np.unique(self.df_summary['Sub Index'].values)
+            sub_index_list = np.sort(sub_index_list)
+            
+            for s, sub_index in enumerate(sub_index_list):
+                report.append(f"### Subfolder Index: {sub_index}")
+                headers = ["LV", "Mean Area", "STD Area", "Total Area", "Percentage (%)"]
+                rows = []
+                total_total = np.sum(self.total_areas[s])
+                for i, label in enumerate(label_list):
+                    pct = (self.total_areas[s][i] * 100 / total_total) if total_total > 0 else 0.0
+                    rows.append([
+                        f"LV{label}",
+                        f"{int(self.mean_areas[s][i])}",
+                        f"{self.std_areas[s][i]:.2f}",
+                        f"{int(self.total_areas[s][i])}",
+                        f"{pct:.1f}%"
+                    ])
+                table_lines = []
+                table_lines.append("| " + " | ".join(headers) + " |")
+                table_lines.append("| " + " | ".join(["---"] * len(headers)) + " |")
+                for row in rows:
+                    table_lines.append("| " + " | ".join(row) + " |")
+                report.append("\n".join(table_lines))
+                report.append("")
+
+        if hasattr(self, 'global_prox_df') and self.global_prox_df is not None:
+            report.append("## 5. Closest Neighbor Analysis")
+            report.append("### 5.1 Global Nearest Neighbor Proximity Matrix (%)")
+            
+            headers = ["Source LV / Neighbor LV"] + [f"LV{col}" for col in self.global_prox_df.columns]
+            rows = []
+            for idx, row in self.global_prox_df.iterrows():
+                row_str = [f"LV{idx}"] + [f"{val:.1f}%" for val in row]
+                rows.append(row_str)
+                
+            table_lines = []
+            table_lines.append("| " + " | ".join(headers) + " |")
+            table_lines.append("| " + " | ".join(["---"] * len(headers)) + " |")
+            for row in rows:
+                table_lines.append("| " + " | ".join(row) + " |")
+            report.append("\n".join(table_lines))
+            report.append("")
+            
+            report.append("### 5.2 Global Dominant Neighbor Phase Relationships")
+            report.append("| Source LV | Most Dominant Neighbor LV | Probability (%) |")
+            report.append("| --- | --- | --- |")
+            for idx, row in self.global_prox_df.iterrows():
+                values = row.tolist()
+                if sum(values) > 0:
+                    max_idx = np.argmax(values)
+                    dominant_neighbor = self.global_prox_df.columns[max_idx]
+                    prob = values[max_idx]
+                    report.append(f"| LV{idx} | LV{dominant_neighbor} | {prob:.1f}% |")
+            report.append("")
+
+            if hasattr(self, 'sub_index_proximities') and self.sub_index_proximities:
+                report.append("### 5.3 Sub-index Proximity Analysis")
+                for sub_idx, prox_df in self.sub_index_proximities.items():
+                    report.append(f"#### Sub Index [{sub_idx}] Nearest Neighbor Proximity Matrix (%)")
+                    headers = ["Source LV / Neighbor LV"] + [f"LV{col}" for col in prox_df.columns]
+                    rows = []
+                    for idx, row in prox_df.iterrows():
+                        row_str = [f"LV{idx}"] + [f"{val:.1f}%" for val in row]
+                        rows.append(row_str)
+                    table_lines = []
+                    table_lines.append("| " + " | ".join(headers) + " |")
+                    table_lines.append("| " + " | ".join(["---"] * len(headers)) + " |")
+                    for row in rows:
+                        table_lines.append("| " + " | ".join(row) + " |")
+                    report.append("\n".join(table_lines))
+                    report.append("")
+
         return "\n".join(report)
 
     def save_state(self, filepath):
