@@ -6,6 +6,7 @@ import tifffile
 from scipy.signal import find_peaks
 import py4DSTEM
 from shapely.geometry import Point, LineString, Polygon
+import shapely
 
 def data_load_3d(adr, crop=None, rescale=True, DM_file=True, rebin_256=False, verbose=True):
     """
@@ -320,67 +321,107 @@ def mmad_score(df_data, experimental_cols, target_structures=None):
 
 # Concave hull
 # original code: https://github.com/M-Lin-DM/Concave-Hulls
-# slightly modified by J. Ryu
+# modified by J. Ryu
 class ConcaveHull(object):
-    def __init__(self, points, k):
-        if isinstance(points, np.ndarray):
+    def __init__(self, points, k, use_gpu=False):
+        if hasattr(points, 'device'):  # cupy array
+            self.data_set = points
+            use_gpu = True
+        elif isinstance(points, np.ndarray):
             self.data_set = points
         elif isinstance(points, list):
             self.data_set = np.array(points)
         else:
-            raise ValueError('Please provide an [N,2] numpy array or a list of lists.')
+            raise ValueError('Please provide an [N,2] array or a list of lists.')
 
-        self.data_set = np.unique(self.data_set, axis=0)
-        self.indices = np.ones(self.data_set.shape[0], dtype=bool)
+        if use_gpu:
+            try:
+                import cupy as cp
+                self.xp = cp
+                self.data_set_cpu = cp.asnumpy(self.data_set)
+                self.data_set_cpu = np.unique(self.data_set_cpu, axis=0)
+                self.data_set = cp.asarray(self.data_set_cpu)
+            except Exception:
+                import warnings
+                warnings.warn("CuPy not available or failed to load. Falling back to CPU/NumPy.")
+                self.xp = np
+                self.data_set = np.unique(self.data_set, axis=0)
+                self.data_set_cpu = self.data_set
+                use_gpu = False
+        else:
+            self.xp = np
+            self.data_set = np.unique(self.data_set, axis=0)
+            self.data_set_cpu = self.data_set
+
+        self.indices = self.xp.ones(self.data_set.shape[0], dtype=bool)
         self.k = k
+        self.use_gpu = use_gpu
+        self.pts_geom = shapely.points(self.data_set_cpu)
 
     @staticmethod
     def dist_pt_to_group(a, b):
-        return np.sqrt(np.sum(np.square(np.subtract(a, b)), axis=1))
+        if hasattr(a, 'device'):
+            import cupy as cp
+            xp = cp
+        else:
+            xp = np
+        return xp.linalg.norm(a - b, axis=1)
 
     @staticmethod
     def get_lowest_latitude_index(points):
-        indices = np.argsort(points[:, 1])
-        return indices[0]
+        if hasattr(points, 'device'):
+            import cupy as cp
+            xp = cp
+        else:
+            xp = np
+        indices = xp.argsort(points[:, 1])
+        return int(indices[0])
 
     @staticmethod
     def norm_array(v):
-        norms = np.array(np.sqrt(np.sum(np.square(v), axis=1)), ndmin=2).transpose()
-        return np.divide(v, norms)
+        if hasattr(v, 'device'):
+            import cupy as cp
+            xp = cp
+        else:
+            xp = np
+        norms = xp.linalg.norm(v, axis=1, keepdims=True)
+        return xp.divide(v, norms)
 
     @staticmethod
     def norm(v):
-        norms = np.array(np.sqrt(np.sum(np.square(v))))
+        if hasattr(v, 'device'):
+            import cupy as cp
+            xp = cp
+        else:
+            xp = np
+        norms = xp.linalg.norm(v)
         return v / norms
 
     def get_k_nearest(self, ix, k):
         ixs = self.indices
-        base_indices = np.arange(len(ixs))[ixs]
+        base_indices = self.xp.arange(len(ixs))[ixs]
         distances = self.dist_pt_to_group(self.data_set[ixs, :], self.data_set[ix, :])
-        sorted_indices = np.argsort(distances)
+        sorted_indices = self.xp.argsort(distances)
         kk = min(k, len(sorted_indices))
-        k_nearest = sorted_indices[range(kk)]
+        k_nearest = sorted_indices[:kk]
         return base_indices[k_nearest]
 
     def clockwise_angles(self, last, ix, ixs, first):
         if first == 1:
-            last_norm = np.array([-1.0, 0.0])
+            last_norm = self.xp.array([-1.0, 0.0])
         elif first == 0:
-            last_norm = self.norm(np.subtract(self.data_set[last, :], self.data_set[ix,:]))
-        ixs_norm = self.norm_array(np.subtract(self.data_set[ixs, :], self.data_set[ix,:]))
-        ang = np.zeros((ixs.shape[0], 1))
-        for j in range(ixs.shape[0]):
-            dot_val = np.clip(np.dot(last_norm, ixs_norm[j, :]), -1.0, 1.0)
-            theta = np.arccos(dot_val)
-            z_comp = last_norm[0] * ixs_norm[j, 1] - last_norm[1] * ixs_norm[j, 0]
-            if z_comp <= 0:
-                ang[j, 0] = theta
-            elif z_comp > 0:
-                ang[j, 0] = 2 * np.pi - theta
-        return np.squeeze(ang)
+            last_norm = self.norm(self.data_set[last, :] - self.data_set[ix, :])
+        
+        ixs_norm = self.norm_array(self.data_set[ixs, :] - self.data_set[ix, :])
+        
+        dot_vals = self.xp.clip(self.xp.dot(ixs_norm, last_norm), -1.0, 1.0)
+        thetas = self.xp.arccos(dot_vals)
+        z_comps = last_norm[0] * ixs_norm[:, 1] - last_norm[1] * ixs_norm[:, 0]
+        ang = self.xp.where(z_comps <= 0, thetas, 2 * self.xp.pi - thetas)
+        return self.xp.squeeze(ang)
 
     def recurse_calculate(self):
-        recurse = ConcaveHull(self.data_set, self.k + 1)
+        recurse = ConcaveHull(self.data_set, self.k + 1, use_gpu=self.use_gpu)
         if recurse.k >= self.data_set.shape[0]:
             print(" max k reached, at k={0}".format(recurse.k))
             return None
@@ -390,20 +431,20 @@ class ConcaveHull(object):
         if self.data_set.shape[0] < 3:
             return None
         if self.data_set.shape[0] == 3:
-            return self.data_set
+            return self.data_set_cpu
 
         kk = min(self.k, self.data_set.shape[0])
         first_point = self.get_lowest_latitude_index(self.data_set)
         current_point = first_point
 
-        hull = np.reshape(np.array(self.data_set[first_point, :]), (1, 2))
+        hull = np.reshape(self.data_set_cpu[first_point, :], (1, 2))
         test_hull = hull
         self.indices[first_point] = False
 
         step = 2
         stop = 2 + kk
 
-        while ((current_point != first_point) or (step == 2)) and len(self.indices[self.indices]) > 0:
+        while ((current_point != first_point) or (step == 2)) and self.xp.sum(self.indices) > 0:
             if step == stop:
                 self.indices[first_point] = True
             knn = self.get_k_nearest(current_point, kk)
@@ -413,13 +454,19 @@ class ConcaveHull(object):
             else:
                 angles = self.clockwise_angles(last_point, current_point, knn, 0)
 
-            candidates = np.argsort(-angles)
+            if self.use_gpu:
+                candidates = self.xp.argsort(-angles).get()
+                knn_cpu = knn.get()
+            else:
+                candidates = np.argsort(-angles)
+                knn_cpu = knn
+
             i = 0
             invalid_hull = True
 
             while invalid_hull and i < len(candidates):
                 candidate = candidates[i]
-                next_point = np.reshape(self.data_set[knn[candidate], :], (1, 2))
+                next_point = np.reshape(self.data_set_cpu[knn_cpu[candidate], :], (1, 2))
                 test_hull = np.append(hull, next_point, axis=0)
                 line = LineString(test_hull)
                 invalid_hull = not line.is_simple
@@ -429,22 +476,14 @@ class ConcaveHull(object):
                 return self.recurse_calculate()
 
             last_point = current_point
-            current_point = knn[candidate]
+            current_point = int(knn_cpu[candidate])
             hull = test_hull
             self.indices[current_point] = False
             step += 1
 
         poly = Polygon(hull)
-        count = 0
-        total = self.data_set.shape[0]
-        for ix in range(total):
-            pt = Point(self.data_set[ix, :])
-            if poly.intersects(pt) or pt.within(poly):
-                count += 1
-            else:
-                continue
-
-        if count == total:
+        in_poly = shapely.intersects(poly, self.pts_geom)
+        if np.all(in_poly):
             return hull
         else:
             return self.recurse_calculate()

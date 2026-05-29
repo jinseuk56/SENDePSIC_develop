@@ -10,6 +10,7 @@ import matplotlib.gridspec as gridspec
 import matplotlib.cm as cm
 import matplotlib.colors as mcolors
 import matplotlib.patheffects as path_effects
+import matplotlib.path as mpath
 from scipy.signal import find_peaks
 from scipy.ndimage import gaussian_filter
 import hyperspy.api as hs
@@ -19,6 +20,7 @@ from sklearn.manifold import TSNE
 from sklearn.cluster import DBSCAN, HDBSCAN, OPTICS
 from collections import Counter, defaultdict
 from scipy.spatial.distance import pdist, squareform
+import shapely
 from shapely.geometry import Polygon, Point
 
 # Import package modules
@@ -33,7 +35,7 @@ from .feature_extract import feature_extract
 class radial_profile_analysis():
     def __init__(self, base_dir, subfolders, profile_length, num_load, final_dir=None,
                  include_key=None, exclude_key=None, simult_edx=False, rebin_256=False, roll_axis=True, 
-                 verbose=True, zernike=False):
+                 verbose=True, zernike=False, use_gpu=False):
         
         now = time.localtime()
         self.formatted = time.strftime("%Y%m%d_%H%M%S", now)
@@ -354,6 +356,7 @@ class radial_profile_analysis():
         self.roll_axis = roll_axis
         self.saved_files = []
         self.crop = [0, -1, 0, -1]
+        self.use_gpu = use_gpu
         
         print("data loaded.")
 
@@ -1452,7 +1455,7 @@ class radial_profile_analysis():
                     sel_coor = np.where(label_cluster == l)
                     xy = np.stack((sel_coor[0], sel_coor[1]), axis=1)
 
-                    obj = ConcaveHull(xy, 2)
+                    obj = ConcaveHull(xy, 2, use_gpu=self.use_gpu)
                     hull = obj.calculate() # boundary pixel positions
 
                     com_x, com_y = np.mean(sel_coor[1]), np.mean(sel_coor[0])
@@ -1543,7 +1546,7 @@ class radial_profile_analysis():
                 sel_coor = np.where(label_cluster == l)
                 xy = np.stack((sel_coor[0], sel_coor[1]), axis=1)
 
-                obj = ConcaveHull(xy, 2)
+                obj = ConcaveHull(xy, 2, use_gpu=self.use_gpu)
                 hull = obj.calculate() # boundary pixel positions
 
                 com_x, com_y = np.mean(sel_coor[1]), np.mean(sel_coor[0])
@@ -1741,25 +1744,20 @@ class radial_profile_analysis():
                 for lv in range(self.num_comp):
                     label_cluster = self.clustered_lv[lv]
                     label_list = np.unique(label_cluster).astype(int)
-                    
                     for l in range(0, len(label_list)-1, 1):
                         try:
-                            polygon = Polygon(self.boundary_lv[lv][l])
+                            hull = self.boundary_lv[lv][l]
+                            polygon = Polygon(hull)
                             x_min, y_min, x_max, y_max = polygon.bounds
-                            grid_density = 1
-
-                            x_coords = np.arange(x_min, x_max, grid_density)
-                            y_coords = np.arange(y_min, y_max, grid_density)
-
-                            inside_points = []
-                            for x in x_coords:
-                                for y in y_coords:
-                                    point = Point(x, y)
-                                    if polygon.contains(point):
-                                        inside_points.append((x, y))
-
-                            inside_points.extend(self.boundary_lv[lv][l])
-                            inside_points = np.asarray(inside_points).astype(int)
+                            
+                            grid_y, grid_x = np.mgrid[int(x_min):int(x_max), int(y_min):int(y_max)]
+                            grid_pts = np.stack((grid_y.ravel(), grid_x.ravel()), axis=1)
+                            pts_geom = shapely.points(grid_pts)
+                            mask = shapely.contains(polygon, pts_geom)
+                            inside_points = grid_pts[mask]
+                            
+                            inside_points = np.vstack((inside_points, hull))
+                            inside_points = np.unique(inside_points, axis=0).astype(int)
                             
                             if cut_too_large != None and len(inside_points) > int(cut_too_large*size*(size-1)):
                                 self.data_pos_pixel['sub_index_%d_LV%d'%(i+1, lv+1)].append([])
