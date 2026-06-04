@@ -12,7 +12,7 @@ import matplotlib.colors as mcolors
 import matplotlib.patheffects as path_effects
 import matplotlib.path as mpath
 from scipy.signal import find_peaks
-from scipy.ndimage import gaussian_filter
+from scipy.ndimage import gaussian_filter, binary_fill_holes
 import hyperspy.api as hs
 import tifffile
 from sklearn.decomposition import NMF, PCA
@@ -35,7 +35,7 @@ from .feature_extract import feature_extract
 class radial_profile_analysis():
     def __init__(self, base_dir, subfolders, profile_length, num_load, final_dir=None,
                  include_key=None, exclude_key=None, simult_edx=False, rebin_256=False, roll_axis=True, 
-                 verbose=True, zernike=False, use_gpu=False):
+                 verbose=True, zernike=False, use_gpu=False, boundary_method="custom", fill_method="shapely", concave_ratio=0.2):
         
         now = time.localtime()
         self.formatted = time.strftime("%Y%m%d_%H%M%S", now)
@@ -357,6 +357,9 @@ class radial_profile_analysis():
         self.saved_files = []
         self.crop = [0, -1, 0, -1]
         self.use_gpu = use_gpu
+        self.boundary_method = boundary_method
+        self.fill_method = fill_method
+        self.concave_ratio = concave_ratio
         
         print("data loaded.")
 
@@ -1422,7 +1425,12 @@ class radial_profile_analysis():
             self.clustered = clustered
         
 
-    def small_area_investigation(self, visual_cluster=True, visual_dp=False, log_dp=True, save=False, also_tiff=False, virtual_4D=False, save_path=None): 
+    def small_area_investigation(self, visual_cluster=True, visual_dp=False, log_dp=True, save=False, also_tiff=False, virtual_4D=False, save_path=None, boundary_method=None, concave_ratio=None): 
+        if boundary_method is None:
+            boundary_method = self.boundary_method
+        if concave_ratio is None:
+            concave_ratio = self.concave_ratio
+
         if self.threshold_map_small == 'NMF':
             if virtual_4D:
                 dataset = hs.load(self.selected_data_path[:-18]+'corrected_scaled.hspy')
@@ -1455,8 +1463,16 @@ class radial_profile_analysis():
                     sel_coor = np.where(label_cluster == l)
                     xy = np.stack((sel_coor[0], sel_coor[1]), axis=1)
 
-                    obj = ConcaveHull(xy, 2, use_gpu=self.use_gpu)
-                    hull = obj.calculate() # boundary pixel positions
+                    if boundary_method in ["shapely", "native"]:
+                        from shapely.geometry import MultiPoint
+                        hull_poly = shapely.concave_hull(MultiPoint(xy), ratio=concave_ratio)
+                        if isinstance(hull_poly, Polygon):
+                            hull = np.array(hull_poly.exterior.coords)
+                        else:
+                            hull = xy
+                    else:
+                        obj = ConcaveHull(xy, 2, use_gpu=self.use_gpu)
+                        hull = obj.calculate() # boundary pixel positions
 
                     com_x, com_y = np.mean(sel_coor[1]), np.mean(sel_coor[0])
                     if visual_cluster:
@@ -1546,8 +1562,16 @@ class radial_profile_analysis():
                 sel_coor = np.where(label_cluster == l)
                 xy = np.stack((sel_coor[0], sel_coor[1]), axis=1)
 
-                obj = ConcaveHull(xy, 2, use_gpu=self.use_gpu)
-                hull = obj.calculate() # boundary pixel positions
+                if boundary_method in ["shapely", "native"]:
+                    from shapely.geometry import MultiPoint
+                    hull_poly = shapely.concave_hull(MultiPoint(xy), ratio=concave_ratio)
+                    if isinstance(hull_poly, Polygon):
+                        hull = np.array(hull_poly.exterior.coords)
+                    else:
+                        hull = xy
+                else:
+                    obj = ConcaveHull(xy, 2, use_gpu=self.use_gpu)
+                    hull = obj.calculate() # boundary pixel positions
 
                 com_x, com_y = np.mean(sel_coor[1]), np.mean(sel_coor[0])
                 ax.scatter(com_x, com_y, s=15, c='k', marker='*')
@@ -1655,7 +1679,12 @@ class radial_profile_analysis():
 
 
     def single_phase_investigation(self, visual=True, fig_save=False, dp_shape=[515, 515], crop_ind=[0, 515, 0, 515],
-                                   eps=4.5, min_sample=30, virtual_4D=True, diff_size=False, size_list=None, cut_too_large=None):
+                                   eps=4.5, min_sample=30, virtual_4D=True, diff_size=False, size_list=None, cut_too_large=None,
+                                   boundary_method=None, fill_method=None, concave_ratio=None):
+        boundary_method_val = boundary_method if boundary_method is not None else self.boundary_method
+        fill_method_val = fill_method if fill_method is not None else self.fill_method
+        concave_ratio_val = concave_ratio if concave_ratio is not None else self.concave_ratio
+
         self.mean_edx = {}
         self.mean_zernike = {}
         self.mean_rvp = {}
@@ -1716,7 +1745,8 @@ class radial_profile_analysis():
                 else:
                     self.effective_small_area(data_key=data_key, threshold_map="NMF", eps=eps, min_sample=min_sample, visual_result=False)
                     
-                self.small_area_investigation(visual_cluster=False, visual_dp=False, save=False, also_tiff=False, virtual_4D=virtual_4D)
+                self.small_area_investigation(visual_cluster=False, visual_dp=False, save=False, also_tiff=False, virtual_4D=virtual_4D,
+                                              boundary_method=boundary_method_val, concave_ratio=concave_ratio_val)
                 
                 self.sub_clustered_lv.append(self.clustered_lv)
                 self.sub_centroid_lv.append(self.centroid_lv)
@@ -1747,17 +1777,25 @@ class radial_profile_analysis():
                     for l in range(0, len(label_list)-1, 1):
                         try:
                             hull = self.boundary_lv[lv][l]
-                            polygon = Polygon(hull)
-                            x_min, y_min, x_max, y_max = polygon.bounds
-                            
-                            grid_y, grid_x = np.mgrid[int(x_min):int(x_max), int(y_min):int(y_max)]
-                            grid_pts = np.stack((grid_y.ravel(), grid_x.ravel()), axis=1)
-                            pts_geom = shapely.points(grid_pts)
-                            mask = shapely.contains(polygon, pts_geom)
-                            inside_points = grid_pts[mask]
-                            
-                            inside_points = np.vstack((inside_points, hull))
-                            inside_points = np.unique(inside_points, axis=0).astype(int)
+                            if fill_method_val == "scipy":
+                                cluster_mask = (label_cluster == l)
+                                filled_mask = binary_fill_holes(cluster_mask)
+                                inside_points = np.argwhere(filled_mask)
+                                if hull is not None and len(hull) > 0:
+                                    inside_points = np.vstack((inside_points, hull))
+                                inside_points = np.unique(inside_points, axis=0).astype(int)
+                            else:
+                                polygon = Polygon(hull)
+                                x_min, y_min, x_max, y_max = polygon.bounds
+                                
+                                grid_y, grid_x = np.mgrid[int(x_min):int(x_max), int(y_min):int(y_max)]
+                                grid_pts = np.stack((grid_y.ravel(), grid_x.ravel()), axis=1)
+                                pts_geom = shapely.points(grid_pts)
+                                mask = shapely.contains(polygon, pts_geom)
+                                inside_points = grid_pts[mask]
+                                
+                                inside_points = np.vstack((inside_points, hull))
+                                inside_points = np.unique(inside_points, axis=0).astype(int)
                             
                             if cut_too_large != None and len(inside_points) > int(cut_too_large*size*(size-1)):
                                 self.data_pos_pixel['sub_index_%d_LV%d'%(i+1, lv+1)].append([])
