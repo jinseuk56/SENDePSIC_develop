@@ -2021,10 +2021,15 @@ class radial_profile_analysis():
                                 x_min, y_min, x_max, y_max = polygon.bounds
                                 
                                 grid_y, grid_x = np.mgrid[int(x_min):int(x_max), int(y_min):int(y_max)]
-                                grid_pts = np.stack((grid_y.ravel(), grid_x.ravel()), axis=1)
-                                path = mpath.Path(hull)
+                                # Pre-cast to float32: mpath.Path.contains_points internally converts
+                                # int64 -> float64, creating a hidden transient copy that doubles
+                                # peak memory. float32 avoids this and halves the allocation.
+                                grid_pts = np.stack((grid_y.ravel(), grid_x.ravel()), axis=1).astype(np.float32)
+                                del grid_y, grid_x  # free immediately; grid_pts holds the data
+                                path = mpath.Path(hull.astype(np.float32))
                                 mask = path.contains_points(grid_pts, radius=-1e-9)
-                                inside_points = grid_pts[mask]
+                                inside_points = grid_pts[mask].astype(int)
+                                del grid_pts, mask  # free large intermediates before vstack
                                 
                                 inside_points = np.vstack((inside_points, hull))
                                 inside_points = np.unique(inside_points, axis=0).astype(int)
@@ -2056,7 +2061,9 @@ class radial_profile_analysis():
                                 self.mean_rvp['sub_index_%d_LV%d'%(i+1, lv+1)] += np.sum(self.radial_var_split[self.sub_ind][self.img_ind].data[inside_points[:, 0], inside_points[:, 1]], axis=0)
                                 self.mean_rmp['sub_index_%d_LV%d'%(i+1, lv+1)] += np.sum(self.radial_avg_split[self.sub_ind][self.img_ind].data[inside_points[:, 0], inside_points[:, 1]], axis=0)
                                 self.data_num_pixel['sub_index_%d_LV%d'%(i+1, lv+1)] += len(inside_points)
-                                self.data_pos_pixel['sub_index_%d_LV%d'%(i+1, lv+1)].append(inside_points.tolist())
+                                # Store as numpy array (not .tolist()) to avoid ~5x Python object overhead
+                                self.data_pos_pixel['sub_index_%d_LV%d'%(i+1, lv+1)].append(inside_points)
+                                del inside_points  # free immediately; stored reference above keeps it alive
                         except:
                             self.data_pos_pixel['sub_index_%d_LV%d'%(i+1, lv+1)].append([])
                 
@@ -2077,7 +2084,7 @@ class radial_profile_analysis():
                     plt.close(fig)
                 elif visual:
                     plt.show()
-                plt.close('all')
+                plt.close(fig)
                         
                 self.sub_num_pixel.append(self.data_num_pixel)
                 self.sub_pos_pixel.append(self.data_pos_pixel)        
