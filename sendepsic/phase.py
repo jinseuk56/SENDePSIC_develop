@@ -682,8 +682,8 @@ class phase_analysis:
                 if not ext:
                     ext = '.png'
 
-            self._plot_heatmap(global_hist_df, "Count", 'Closest Neighbor LV', 'Source LV', 'seismic', title="Global Neighborhood: Count", _eff_save=f"{base}_global_count{ext}" if _eff_save else None)
-            self._plot_heatmap(global_prox_df, "Percentage (%)", 'Neighbor LV', 'Source LV', 'seismic', title="Global Neighborhood: Percentage", is_percentage=True, _eff_save=f"{base}_global_percentage{ext}" if _eff_save else None)
+            self._plot_heatmap(global_hist_df, "Count", 'Closest Neighbor LV', 'Source LV', 'seismic', title="Global Neighborhood: Count", save_path=f"{base}_global_count{ext}" if _eff_save else None)
+            self._plot_heatmap(global_prox_df, "Percentage (%)", 'Neighbor LV', 'Source LV', 'seismic', title="Global Neighborhood: Percentage", is_percentage=True, save_path=f"{base}_global_percentage{ext}" if _eff_save else None)
 
             if len(sub_index_histograms) > 1:
                 for sub_idx in sub_index_histograms:
@@ -697,12 +697,12 @@ class phase_analysis:
                     self._plot_heatmap(
                         sub_index_histograms[sub_idx], "Count", 'Closest Neighbor LV', 'Source LV', 'seismic', 
                         title=f"Sub Index [{sub_idx}]: Count",
-                        _eff_save=f"{base}_sub_{sub_idx}_count{ext}" if _eff_save else None
+                        save_path=f"{base}_sub_{sub_idx}_count{ext}" if _eff_save else None
                     )
                     self._plot_heatmap(
                         sub_index_proximities[sub_idx], "Percentage (%)", 'Neighbor LV', 'Source LV', 'seismic', 
                         title=f"Sub Index [{sub_idx}]: Percentage", is_percentage=True,
-                        _eff_save=f"{base}_sub_{sub_idx}_percentage{ext}" if _eff_save else None
+                        save_path=f"{base}_sub_{sub_idx}_percentage{ext}" if _eff_save else None
                     )
 
         self.global_hist_df = global_hist_df
