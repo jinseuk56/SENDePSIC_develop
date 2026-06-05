@@ -123,7 +123,7 @@ def radial_indices(shape, radial_range, center=None):
         ri[np.where(r != round(radial_range[0]))] = 0
     return ri
 
-def flattening(fdata, flat_option="box", crop_dist=None, c_pos=None):
+def flattening(fdata, flat_option="box", crop_dist=None, c_pos=None, save_path=None):
     fdata_shape = fdata.shape
     if flat_option == "box":
         if crop_dist:     
@@ -137,7 +137,12 @@ def flattening(fdata, flat_option="box", crop_dist=None, c_pos=None):
             fig, ax = plt.subplots(1, 1, figsize=(5, 5), dpi=100)
             ax.imshow(np.log(np.mean(tmp, axis=(0, 1))), cmap="viridis")
             ax.axis("off")
-            plt.show()
+            if save_path is not None:
+                os.makedirs(os.path.dirname(os.path.abspath(save_path)), exist_ok=True)
+                fig.savefig(save_path, bbox_inches='tight')
+                plt.close(fig)
+            else:
+                plt.show()
             
             tmp = tmp.reshape(fdata_shape[0], fdata_shape[1], -1)
             return tmp

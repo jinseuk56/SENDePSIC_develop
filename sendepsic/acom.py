@@ -41,7 +41,7 @@ def assign_rgb_colors(cluster_centers, mapping_style='orthorhombic'):
         
     return cluster_rgbs, cluster_names
 
-def plot_orientation_image(results):
+def plot_orientation_image(results, save_path=None):
     """Plots the final RGB image map, including black unindexed pixels."""
     rgb_image = results["rgb_image"]
     labels_grid = results["labels_grid"]
@@ -80,7 +80,13 @@ def plot_orientation_image(results):
     ax.set_title('ACOM Crystal Orientation Map')
     
     plt.tight_layout()
-    plt.show()
+    if save_path is not None:
+        os.makedirs(os.path.dirname(os.path.abspath(save_path)), exist_ok=True)
+        fig.savefig(save_path, bbox_inches='tight')
+        plt.close(fig)
+    else:
+        plt.show()
+
 
 def map_3d_orientations(hkl_map_3d, num_clusters=3, crystal_system='orthorhombic', color_style='orthorhombic', threshold=0.01):
     """

@@ -360,11 +360,35 @@ class radial_profile_analysis():
         self.boundary_method = boundary_method
         self.fill_method = fill_method
         self.concave_ratio = concave_ratio
+        self._default_figure_save_path = None
         
         print("data loaded.")
 
 
-    def print_colormaps(self):
+    def set_figure_save_path(self, path):
+        """Set a default base path for saving all figures.
+        
+        When set, all visualization methods will automatically save figures
+        to disk using this as the base path prefix, without needing to
+        specify save_path on each call. Individual method calls can still
+        override this with their own save_path argument.
+        
+        Parameters
+        ----------
+        path : str or None
+            Base file path prefix (e.g. '/results/sample_A'). Extension is
+            optional; .png is used by default. Pass None to revert to
+            notebook display mode.
+        """
+        self._default_figure_save_path = path
+        if path is not None:
+            print(f"Default figure save path set to: {path}")
+        else:
+            print("Default figure save path cleared. Figures will display in notebook.")
+
+
+    def print_colormaps(self, save_path=None):
+        _eff_save = save_path if save_path is not None else self._default_figure_save_path
         gradient = np.linspace(0, 1, 256)
         gradient = np.vstack((gradient, gradient))
 
@@ -373,10 +397,16 @@ class radial_profile_analysis():
             axs.imshow(gradient, aspect='auto', cmap=self.cm_rep[i+1])
             axs.set_axis_off()
         fig.tight_layout()
-        plt.show()
+        if _eff_save is not None:
+            os.makedirs(os.path.dirname(os.path.abspath(_eff_save)), exist_ok=True)
+            fig.savefig(_eff_save, bbox_inches='tight')
+            plt.close(fig)
+        else:
+            plt.show()
 
 
-    def center_beam_alignment_check(self, crop=[0, -1, 0, -1], visual_title=True, title_font_size=10):
+    def center_beam_alignment_check(self, crop=[0, -1, 0, -1], visual_title=True, title_font_size=10, save_path=None):
+        _eff_save = save_path if save_path is not None else self._default_figure_save_path
 
         self.crop = crop
         top, bottom, left, right = self.crop
@@ -403,10 +433,19 @@ class radial_profile_analysis():
             plt.subplots_adjust(hspace=0.1, wspace=0.1)
             if visual_title:
                 fig.tight_layout()
-            plt.show()
+            if _eff_save is not None:
+                os.makedirs(os.path.dirname(os.path.abspath(_eff_save)), exist_ok=True)
+                base, ext = os.path.splitext(_eff_save)
+                if not ext:
+                    ext = '.png'
+                fig.savefig(f"{base}_sub_{i}{ext}", bbox_inches='tight')
+                plt.close(fig)
+            else:
+                plt.show()
 
 
-    def intensity_integration_image(self, visual_title=True, title_font_size=10):
+    def intensity_integration_image(self, visual_title=True, title_font_size=10, save_path=None):
+        _eff_save = save_path if save_path is not None else self._default_figure_save_path
     
         for i in range(len(self.subfolders)):
             num_img = len(self.radial_avg_split[i])
@@ -430,12 +469,21 @@ class radial_profile_analysis():
             plt.subplots_adjust(hspace=0.1, wspace=0.1)
             if visual_title:
                 fig.tight_layout()
-            plt.show()
+            if _eff_save is not None:
+                os.makedirs(os.path.dirname(os.path.abspath(_eff_save)), exist_ok=True)
+                base, ext = os.path.splitext(_eff_save)
+                if not ext:
+                    ext = '.png'
+                fig.savefig(f"{base}_sub_{i}{ext}", bbox_inches='tight')
+                plt.close(fig)
+            else:
+                plt.show()
 
 
     def basic_setup(self, str_path, from_unit, to_unit, broadening=0.01, 
                     fill_width=0.1, height=None, width=None, threshold=None, 
-                    distance=None, prominence=0.001, visual=True, visual_legend=True):
+                    distance=None, prominence=0.001, visual=True, visual_legend=True, save_path=None):
+        _eff_save = save_path if save_path is not None else self._default_figure_save_path
         print("Original scattering vector range = [%.6f, %.6f]"%(0, self.profile_length*self.pixel_size_inv_Ang))
         
         self.str_path = str_path
@@ -482,7 +530,7 @@ class radial_profile_analysis():
 
                 peak_sf[str_name] = peaks
 
-                if visual:
+                if visual or _eff_save is not None:
                     fig, ax = plt.subplots(1, 1, figsize=(8, 6), dpi=100)
                     ax.plot(self.x_axis, int_sf[str_name], 'k-', label=str_name)
                     if visual_legend:
@@ -496,15 +544,31 @@ class radial_profile_analysis():
                             ax.text(peak, 1.0, "%d"%(j+1))
                     
                     fig.tight_layout()
-                    plt.show()
+                    if _eff_save is not None:
+                        os.makedirs(os.path.dirname(os.path.abspath(_eff_save)), exist_ok=True)
+                        base, ext = os.path.splitext(_eff_save)
+                        if not ext:
+                            ext = '.png'
+                        fig.savefig(f"{base}_{str_name}{ext}", bbox_inches='tight')
+                        plt.close(fig)
+                    else:
+                        plt.show()
             
-            if visual:
+            if visual or _eff_save is not None:
                 int_sf["sum_of_all"] = np.sum(list(int_sf.values()), axis=0)
                 fig, ax = plt.subplots(1, 1, figsize=(8, 6), dpi=100)
                 ax.plot(self.x_axis, int_sf["sum_of_all"], 'k-', label="sum of all")
                 ax.legend(loc='right')
                 fig.tight_layout()
-                plt.show()
+                if _eff_save is not None:
+                    os.makedirs(os.path.dirname(os.path.abspath(_eff_save)), exist_ok=True)
+                    base, ext = os.path.splitext(_eff_save)
+                    if not ext:
+                        ext = '.png'
+                    fig.savefig(f"{base}_sum_of_all{ext}", bbox_inches='tight')
+                    plt.close(fig)
+                else:
+                    plt.show()
     
             self.int_sf = int_sf
             self.peak_sf = peak_sf
@@ -515,10 +579,18 @@ class radial_profile_analysis():
 
     def sum_radial_profile(self, str_name=None, profile_type="variance", 
                            visual_legend=True, visual_title=True, title_font_size=10,
-                          axis_off=True, individual_visual=True):            
+                           axis_off=True, individual_visual=True, save_path=None):            
+        _eff_save = save_path if save_path is not None else self._default_figure_save_path
         
         fig_tot, ax_tot = plt.subplots(2, 1, figsize=(8, 12), dpi=100)
         
+        base, ext = ("", "")
+        if _eff_save is not None:
+            os.makedirs(os.path.dirname(os.path.abspath(_eff_save)), exist_ok=True)
+            base, ext = os.path.splitext(_eff_save)
+            if not ext:
+                ext = '.png'
+
         for i in range(len(self.subfolders)):
             num_img = len(self.radial_var_sum_split[i])
             grid_size = int(np.around(np.sqrt(num_img)))
@@ -594,15 +666,20 @@ class radial_profile_analysis():
                 if visual_legend:
                     ax_sub[0].legend(loc="upper right")
                     ax_sub[1].legend(loc="upper right")
-                if individual_visual:
-                    fig.suptitle(self.subfolders[i]+' - scattering vector range %.3f-%.3f (1/Å)'%(self.from_, self.to_))
-                    fig.tight_layout()
+                fig.suptitle(self.subfolders[i]+' - scattering vector range %.3f-%.3f (1/Å)'%(self.from_, self.to_))
+                fig.tight_layout()
 
                 if profile_type == "variance":
                     fig_sub.suptitle("mean of radial variance profiles - scattering vector range %.3f-%.3f (1/Å)"%(self.from_, self.to_))
                 else:
                     fig_sub.suptitle("mean of radial mean profiles - scattering vector range %.3f-%.3f (1/Å)"%(self.from_, self.to_))
                 fig_sub.tight_layout()
+                
+                if _eff_save is not None:
+                    fig.savefig(f"{base}_sub_{i}_individual{ext}", bbox_inches='tight')
+                    fig_sub.savefig(f"{base}_sub_{i}_summary{ext}", bbox_inches='tight')
+                    plt.close(fig)
+                    plt.close(fig_sub)
 
             mean_tot = np.mean(total_sp, axis=0)
             ax_tot[0].plot(self.x_axis, mean_tot, label=self.subfolders[i])
@@ -615,7 +692,11 @@ class radial_profile_analysis():
         else:
             fig_tot.suptitle("Compare the mean of radial mean profiles between subfolders")
         fig_tot.tight_layout()
-        plt.show()
+        if _eff_save is not None:
+            fig_tot.savefig(f"{base}_total{ext}", bbox_inches='tight')
+            plt.close(fig_tot)
+        else:
+            plt.show()
 
 
     def NMF_decompose(self, num_comp, scale_crop=True, rescale_SI=False, max_normalize=False, rescale_0to1=True, profile_type="variance", verbose=True, tolerance=1E-4, coeff_map_type="absolute"):
@@ -671,8 +752,16 @@ class radial_profile_analysis():
         self.nmf_reconstruction_err = getattr(self.run_SI.DR, 'reconstruction_err_', None)
 
 
-    def NMF_result(self, lv_show=None, transparency_percentile=100, visual_title=True, title_font_size=10):
+    def NMF_result(self, lv_show=None, transparency_percentile=100, visual_title=True, title_font_size=10, save_path=None):
         
+        _eff_save = save_path if save_path is not None else self._default_figure_save_path
+        base, ext = ("", "")
+        if _eff_save is not None:
+            os.makedirs(os.path.dirname(os.path.abspath(_eff_save)), exist_ok=True)
+            base, ext = os.path.splitext(_eff_save)
+            if not ext:
+                ext = '.png'
+
         # Loading vectors
         fig, ax = plt.subplots(1, 1, figsize=(6, 4), dpi=100)
         for lv in range(self.num_comp):
@@ -687,7 +776,11 @@ class radial_profile_analysis():
         # ax.set_facecolor("lightgray")
         ax.legend(loc='upper right')
         fig.tight_layout()
-        plt.show()
+        if _eff_save is not None:
+            fig.savefig(f"{base}_loading_vectors{ext}", bbox_inches='tight')
+            plt.close(fig)
+        else:
+            plt.show()
 
         # All coefficient maps in one image plot
 
@@ -725,7 +818,11 @@ class radial_profile_analysis():
                     plt.subplots_adjust(hspace=0.1, wspace=0.1)
                     if visual_title:
                         fig.tight_layout()
-                    plt.show()
+                    if _eff_save is not None:
+                        fig.savefig(f"{base}_coeff_maps_sub_{i}{ext}", bbox_inches='tight')
+                        plt.close(fig)
+                    else:
+                        plt.show()
     
             else:
                 print("#############################################################################################")
@@ -766,7 +863,11 @@ class radial_profile_analysis():
                     plt.subplots_adjust(hspace=0.1, wspace=0.1)
                     if visual_title:
                         fig.tight_layout()
-                    plt.show()
+                    if _eff_save is not None:
+                        fig.savefig(f"{base}_coeff_maps_sub_{i}{ext}", bbox_inches='tight')
+                        plt.close(fig)
+                    else:
+                        plt.show()
 
         elif lv_show != None and lv_show != []:
             print("#############################################################################################")
@@ -807,11 +908,16 @@ class radial_profile_analysis():
                 plt.subplots_adjust(hspace=0.1, wspace=0.1)
                 if visual_title:
                     fig.tight_layout()
-                plt.show()            
+                if _eff_save is not None:
+                    fig.savefig(f"{base}_coeff_maps_sub_{i}{ext}", bbox_inches='tight')
+                    plt.close(fig)
+                else:
+                    plt.show()            
 
 
     def NMF_comparison(self, str_name=None, percentile_threshold=90, ref_variance=0.7, 
-                       visual_title=True, title_font_size=10, axis_off=True, visual_individual=True):
+                       visual_title=True, title_font_size=10, axis_off=True, visual_individual=True, save_path=None):
+        _eff_save = save_path if save_path is not None else self._default_figure_save_path
         self.percentile_threshold = percentile_threshold
         # Show the pixels with high coefficients for each loading vector and the averaged profiles for the mask region
         coeff_split = []
@@ -947,6 +1053,13 @@ class radial_profile_analysis():
                         ax_sub_twin.plot(self.x_axis, self.int_sf[key], label=key, linestyle=":")
                     ax_sub_twin.legend(loc="right")
                 fig_sub_tot.tight_layout()
+                if _eff_save is not None:
+                    os.makedirs(os.path.dirname(os.path.abspath(_eff_save)), exist_ok=True)
+                    base, ext = os.path.splitext(_eff_save)
+                    if not ext:
+                        ext = '.png'
+                    fig_sub_tot.savefig(f"{base}_lv_{lv+1}_sub_{i}_total{ext}", bbox_inches='tight')
+                    plt.close(fig_sub_tot)
 
                 if self.NMF_profile_type == "zernike":
                     tmp_ax, = ax_lv[2].plot(lv_sub, c=self.color_rep[i+1], label=self.subfolders[i])
@@ -959,6 +1072,15 @@ class radial_profile_analysis():
                 if visual_individual:
                     fig.suptitle(self.subfolders[i]+' threshold coefficient map for loading vector %d'%(lv+1))
                     fig.tight_layout()
+                    if _eff_save is not None:
+                        os.makedirs(os.path.dirname(os.path.abspath(_eff_save)), exist_ok=True)
+                        base, ext = os.path.splitext(_eff_save)
+                        if not ext:
+                            ext = '.png'
+                        fig.savefig(f"{base}_lv_{lv+1}_sub_{i}{ext}", bbox_inches='tight')
+                        plt.close(fig)
+                    else:
+                        pass  # fig_sub_tot shown below or keep open
                     
                 coeff_lv.append(coeff)
                 thresh_coeff_lv.append(thresh_coeff)
@@ -980,6 +1102,13 @@ class radial_profile_analysis():
             ax_lv[1].set_title("sum of profiles for all threshold maps - loading vector %d"%(lv+1))
             ax_lv[2].legend()
             fig_lv.tight_layout()
+            if _eff_save is not None:
+                os.makedirs(os.path.dirname(os.path.abspath(_eff_save)), exist_ok=True)
+                base, ext = os.path.splitext(_eff_save)
+                if not ext:
+                    ext = '.png'
+                fig_lv.savefig(f"{base}_lv_{lv+1}{ext}", bbox_inches='tight')
+                plt.close(fig_lv)
 
         fig_tot, ax_tot = plt.subplots(1, 1, figsize=(6, 4), dpi=100)
         for l, line in enumerate(lv_line):
@@ -991,7 +1120,15 @@ class radial_profile_analysis():
         ax_tot.legend()
         fig_tot.suptitle("Compare the mean of radial profiles between loading vectors")
         fig_tot.tight_layout()
-        plt.show()
+        if _eff_save is not None:
+            os.makedirs(os.path.dirname(os.path.abspath(_eff_save)), exist_ok=True)
+            base, ext = os.path.splitext(_eff_save)
+            if not ext:
+                ext = '.png'
+            fig_tot.savefig(f"{base}_total{ext}", bbox_inches='tight')
+            plt.close(fig_tot)
+        else:
+            plt.show()
             
         self.coeff_split = coeff_split
         self.thresh_coeff_split = thresh_coeff_split
@@ -1001,8 +1138,9 @@ class radial_profile_analysis():
         return lv_line
 
 
-    def high_coeff_area_comparison(self):
+    def high_coeff_area_comparison(self, save_path=None):
 
+        _eff_save = save_path if save_path is not None else self._default_figure_save_path
         lv_coeff_area_mean = []
         lv_coeff_area_std = []
         for lv in range(self.num_comp):
@@ -1022,13 +1160,22 @@ class radial_profile_analysis():
             fig.suptitle("Effective high coeffcieint area of loading vector %d by subfolder"%(lv+1))
             # plt.subplots_adjust(hspace=0.02, wspace=0.02)
             fig.tight_layout()
-            plt.show()
+            if _eff_save is not None:
+                os.makedirs(os.path.dirname(os.path.abspath(_eff_save)), exist_ok=True)
+                base, ext = os.path.splitext(_eff_save)
+                if not ext:
+                    ext = '.png'
+                fig.savefig(f"{base}_lv_{lv+1}{ext}", bbox_inches='tight')
+                plt.close(fig)
+            else:
+                plt.show()
 
         self.lv_coeff_area_mean = lv_coeff_area_mean
         self.lv_coeff_area_std = lv_coeff_area_std
 
 
-    def NMF_summary_save(self, save=False, also_dp=False, log_scale_dp=True, also_tiff=False, fill_width=0.01, prominence_lv=0.001, prominence_profile=0.001):
+    def NMF_summary_save(self, save=False, also_dp=False, log_scale_dp=True, also_tiff=False, fill_width=0.01, prominence_lv=0.001, prominence_profile=0.001, figure_save_path=None):
+        _eff_save = figure_save_path if figure_save_path is not None else self._default_figure_save_path
         for i in range(len(self.subfolders)):
             num_img = len(self.radial_var_split[i])
             for j in range(num_img):
@@ -1066,8 +1213,16 @@ class radial_profile_analysis():
 
                 fig.suptitle(self.subfolders[i]+" - "+os.path.basename(self.loaded_data_path[i][j])[:15])
                 fig.tight_layout()
-                plt.show()
                 fig.savefig(save_path+'/'+data_name+"_summary.png")
+                if _eff_save is not None:
+                    os.makedirs(os.path.dirname(os.path.abspath(_eff_save)), exist_ok=True)
+                    base, ext = os.path.splitext(_eff_save)
+                    if not ext:
+                        ext = '.png'
+                    fig.savefig(f"{base}_summary_{i}_{j}{ext}", bbox_inches='tight')
+                    plt.close(fig)
+                else:
+                    plt.show()
 
                 if save:
                     sum_map = hs.signals.Signal2D(sum_map)
@@ -1181,14 +1336,23 @@ class radial_profile_analysis():
                             ax_lv[2, 1].axis("off")
 
                     fig_lv.tight_layout()
-                    plt.show()
                     fig_lv.savefig(save_path+'/'+data_name+"_NMF_%d_lv_summary.png"%(lv+1))
+                    if _eff_save is not None:
+                        os.makedirs(os.path.dirname(os.path.abspath(_eff_save)), exist_ok=True)
+                        base, ext = os.path.splitext(_eff_save)
+                        if not ext:
+                            ext = '.png'
+                        fig_lv.savefig(f"{base}_lv_{lv+1}_{i}_{j}{ext}", bbox_inches='tight')
+                        plt.close(fig_lv)
+                    else:
+                        plt.show()
                     
                 if also_dp:
                     del dataset # release the occupied memory
 
           
-    def NMF_summary_save_specific(self, save=False, also_dp=False, log_scale_dp=True, also_tiff=False, fill_width=0.01, prominence_lv=0.001, prominence_profile=0.001, specific_data=[]):
+    def NMF_summary_save_specific(self, save=False, also_dp=False, log_scale_dp=True, also_tiff=False, fill_width=0.01, prominence_lv=0.001, prominence_profile=0.001, specific_data=[], figure_save_path=None):
+        _eff_save = figure_save_path if figure_save_path is not None else self._default_figure_save_path
         for i in range(len(self.subfolders)):
             num_img = len(self.radial_var_split[i])
             for j in range(num_img):
@@ -1228,8 +1392,16 @@ class radial_profile_analysis():
 
                         fig.suptitle(self.subfolders[i]+" - "+os.path.basename(self.loaded_data_path[i][j])[:15])
                         fig.tight_layout()
-                        plt.show()
                         fig.savefig(save_path+'/'+data_name+"_summary.png")
+                        if _eff_save is not None:
+                            os.makedirs(os.path.dirname(os.path.abspath(_eff_save)), exist_ok=True)
+                            base, ext = os.path.splitext(_eff_save)
+                            if not ext:
+                                ext = '.png'
+                            fig.savefig(f"{base}_summary_{i}_{j}{ext}", bbox_inches='tight')
+                            plt.close(fig)
+                        else:
+                            plt.show()
 
                         if save:
                             sum_map = hs.signals.Signal2D(sum_map)
@@ -1343,14 +1515,23 @@ class radial_profile_analysis():
                                     ax_lv[2, 1].axis("off")
 
                             fig_lv.tight_layout()
-                            plt.show()
                             fig_lv.savefig(save_path+'/'+data_name+"_NMF_%d_lv_summary.png"%(lv+1))
+                            if _eff_save is not None:
+                                os.makedirs(os.path.dirname(os.path.abspath(_eff_save)), exist_ok=True)
+                                base, ext = os.path.splitext(_eff_save)
+                                if not ext:
+                                    ext = '.png'
+                                fig_lv.savefig(f"{base}_lv_{lv+1}_{i}_{j}{ext}", bbox_inches='tight')
+                                plt.close(fig_lv)
+                            else:
+                                plt.show()
 
                         if also_dp:
                             del dataset # release the occupied memory        
 
                                                 
-    def effective_small_area(self, data_key, threshold_map="NMF", algorithm="DBSCAN", eps=1.5, min_sample=16, visual_result=True):
+    def effective_small_area(self, data_key, threshold_map="NMF", algorithm="DBSCAN", eps=1.5, min_sample=16, visual_result=True, save_path=None):
+        _eff_save = save_path if save_path is not None else self._default_figure_save_path
         self.threshold_map_small = threshold_map
         self.clustering_params = {
             "data_key": data_key,
@@ -1390,7 +1571,16 @@ class radial_profile_analysis():
                     ax[0].imshow(binary_map, cmap='gray')
                     ax[1].imshow(clustered, cmap='tab20')
                     fig.suptitle(self.subfolders[self.sub_ind]+'\nLoading vector %d\n'%(lv+1)+os.path.basename(self.loaded_data_path[self.sub_ind][self.img_ind])[:15]+"\nBefore and After clustering")
-                    plt.show()
+                    fig.tight_layout()
+                    if _eff_save is not None:
+                        os.makedirs(os.path.dirname(os.path.abspath(_eff_save)), exist_ok=True)
+                        base, ext = os.path.splitext(_eff_save)
+                        if not ext:
+                            ext = '.png'
+                        fig.savefig(f"{base}_lv_{lv+1}{ext}", bbox_inches='tight')
+                        plt.close(fig)
+                    else:
+                        plt.show()
             
             self.clustered_lv = clustered_lv
             
@@ -1403,7 +1593,7 @@ class radial_profile_analysis():
                         self.sub_ind = i
                         self.img_ind = j            
 
-            db = DBSCAN(eps=e, min_samples=m)
+            db = DBSCAN(eps=eps, min_samples=min_sample)
             binary_map = self.thresh_var_split[self.sub_ind][self.img_ind]
             sel_coor = np.nonzero(binary_map)
             X = np.stack((sel_coor[0], sel_coor[1]), axis=1)
@@ -1418,14 +1608,23 @@ class radial_profile_analysis():
                 fig, ax = plt.subplots(1, 2, figsize=(12, 6), dpi=100)
                 ax[0].imshow(binary_map, cmap='gray')
                 ax[1].imshow(clustered, cmap='tab20')
-                fig.suptitle(self.subfolders[self.sub_ind]+'-'%(lv+1)+os.path.basename(self.loaded_data_path[self.sub_ind][self.img_ind])[:15]+"\nBefore and After clustering")
+                fig.suptitle(self.subfolders[self.sub_ind]+' - '+os.path.basename(self.loaded_data_path[self.sub_ind][self.img_ind])[:15]+"\nBefore and After clustering")
                 fig.tight_layout()
-                plt.show()
+                if _eff_save is not None:
+                    os.makedirs(os.path.dirname(os.path.abspath(_eff_save)), exist_ok=True)
+                    base, ext = os.path.splitext(_eff_save)
+                    if not ext:
+                        ext = '.png'
+                    fig.savefig(f"{base}_variance{ext}", bbox_inches='tight')
+                    plt.close(fig)
+                else:
+                    plt.show()
             
             self.clustered = clustered
         
 
-    def small_area_investigation(self, visual_cluster=True, visual_dp=False, log_dp=True, save=False, also_tiff=False, virtual_4D=False, save_path=None, boundary_method=None, concave_ratio=None): 
+    def small_area_investigation(self, visual_cluster=True, visual_dp=False, log_dp=True, save=False, also_tiff=False, virtual_4D=False, save_path=None, boundary_method=None, concave_ratio=None, figures_save_path=None): 
+        _eff_save = figures_save_path if figures_save_path is not None else self._default_figure_save_path
         if boundary_method is None:
             boundary_method = self.boundary_method
         if concave_ratio is None:
@@ -1522,7 +1721,19 @@ class radial_profile_analysis():
                             ax_dp[1].imshow(max_dp.clip(min=0), cmap='gray')    
                         fig_dp.suptitle(self.subfolders[self.sub_ind]+" - "+os.path.basename(self.selected_data_path)[:15]+'\n%02d lv %02d cluster'%(lv+1, l))
 
-                plt.show()
+                if _eff_save is not None:
+                    os.makedirs(os.path.dirname(os.path.abspath(_eff_save)), exist_ok=True)
+                    base, ext = os.path.splitext(_eff_save)
+                    if not ext:
+                        ext = '.png'
+                    if visual_cluster:
+                        fig.savefig(f"{base}_lv_{lv+1}_cluster{ext}", bbox_inches='tight')
+                        plt.close(fig)
+                    if visual_dp:
+                        fig_dp.savefig(f"{base}_lv_{lv+1}_dp{ext}", bbox_inches='tight')
+                        plt.close(fig_dp)
+                else:
+                    plt.show()
                 centroid_lv.append(centroid_label)
                 boundary_lv.append(boundary_label)
                 virtual_lv.append(virtual_label)
@@ -1620,14 +1831,26 @@ class radial_profile_analysis():
                         ax_dp[1].imshow(max_dp.clip(min=0), cmap='gray')                    
                     fig_dp.suptitle(self.subfolders[self.sub_ind]+" - "+os.path.basename(self.selected_data_path)[:15]+'\n%02d lv %02d cluster'%(lv+1, l))
 
-            plt.show()
+            if _eff_save is not None:
+                os.makedirs(os.path.dirname(os.path.abspath(_eff_save)), exist_ok=True)
+                base, ext = os.path.splitext(_eff_save)
+                if not ext:
+                    ext = '.png'
+                fig.savefig(f"{base}_variance_cluster{ext}", bbox_inches='tight')
+                plt.close(fig)
+                if visual_dp:
+                    fig_dp.savefig(f"{base}_variance_dp{ext}", bbox_inches='tight')
+                    plt.close(fig_dp)
+            else:
+                plt.show()
             self.centroid_label = centroid_label
             self.boundary_label = boundary_label
             if virtual_4D:
                 self.virtual_label = virtual_label
 
 
-    def overlap_check(self, visual_lv=False):
+    def overlap_check(self, visual_lv=False, save_path=None):
+        _eff_save = save_path if save_path is not None else self._default_figure_save_path
         if self.threshold_map_small == 'NMF':
             fig_tot, ax_tot = plt.subplots(1, 1, figsize=(6, 6), dpi=100)
             for lv in range(self.num_comp):
@@ -1672,7 +1895,15 @@ class radial_profile_analysis():
             ax_tot.set_yticklabels([])
             ax_tot.set_facecolor("lightgray")
             fig_tot.tight_layout()
-            plt.show()
+            if _eff_save is not None:
+                os.makedirs(os.path.dirname(os.path.abspath(_eff_save)), exist_ok=True)
+                base, ext = os.path.splitext(_eff_save)
+                if not ext:
+                    ext = '.png'
+                fig_tot.savefig(f"{base}_overlap{ext}", bbox_inches='tight')
+                plt.close(fig_tot)
+            else:
+                plt.show()
             
         else:
             return
@@ -1680,7 +1911,8 @@ class radial_profile_analysis():
 
     def single_phase_investigation(self, visual=True, fig_save=False, dp_shape=[515, 515], crop_ind=[0, 515, 0, 515],
                                    eps=4.5, min_sample=30, virtual_4D=True, diff_size=False, size_list=None, cut_too_large=None,
-                                   boundary_method=None, fill_method=None, concave_ratio=None):
+                                   boundary_method=None, fill_method=None, concave_ratio=None, save_path=None):
+        _eff_save = save_path if save_path is not None else self._default_figure_save_path
         boundary_method_val = boundary_method if boundary_method is not None else self.boundary_method
         fill_method_val = fill_method if fill_method is not None else self.fill_method
         concave_ratio_val = concave_ratio if concave_ratio is not None else self.concave_ratio
@@ -1784,6 +2016,18 @@ class radial_profile_analysis():
                                 if hull is not None and len(hull) > 0:
                                     inside_points = np.vstack((inside_points, hull))
                                 inside_points = np.unique(inside_points, axis=0).astype(int)
+                            elif fill_method_val in ["path", "matplotlib"]:
+                                polygon = Polygon(hull)
+                                x_min, y_min, x_max, y_max = polygon.bounds
+                                
+                                grid_y, grid_x = np.mgrid[int(x_min):int(x_max), int(y_min):int(y_max)]
+                                grid_pts = np.stack((grid_y.ravel(), grid_x.ravel()), axis=1)
+                                path = mpath.Path(hull)
+                                mask = path.contains_points(grid_pts, radius=-1e-9)
+                                inside_points = grid_pts[mask]
+                                
+                                inside_points = np.vstack((inside_points, hull))
+                                inside_points = np.unique(inside_points, axis=0).astype(int)
                             else:
                                 polygon = Polygon(hull)
                                 x_min, y_min, x_max, y_max = polygon.bounds
@@ -1816,17 +2060,24 @@ class radial_profile_analysis():
                         except:
                             self.data_pos_pixel['sub_index_%d_LV%d'%(i+1, lv+1)].append([])
                 
+                if fig_save:
+                    fig.savefig("%s_%s_single_phase_area.png"%(self.subfolders[i], data_key), dpi=100)
                 if visual:            
                     ax.set_xticks([])
                     ax.set_yticks([])
                     ax.set_xticklabels([])
                     ax.set_yticklabels([])  
                     fig.tight_layout()
+                if _eff_save is not None:
+                    os.makedirs(os.path.dirname(os.path.abspath(_eff_save)), exist_ok=True)
+                    base, ext = os.path.splitext(_eff_save)
+                    if not ext:
+                        ext = '.png'
+                    fig.savefig(f"{base}_sub_{i}_data_{j}{ext}", bbox_inches='tight')
+                    plt.close(fig)
+                elif visual:
                     plt.show()
-                    plt.close('all')
-                if fig_save:
-                    plt.savefig("%s_%s_single_phase_area.png"%(self.subfolders[i], data_key), dpi=100)
-                    plt.close('all')
+                plt.close('all')
                         
                 self.sub_num_pixel.append(self.data_num_pixel)
                 self.sub_pos_pixel.append(self.data_pos_pixel)        
@@ -1837,8 +2088,9 @@ class radial_profile_analysis():
             self.boundary_lv_split.append(self.sub_boundary_lv)                       
 
 
-    def scattering_range_of_interest(self, profile_type="variance", str_name=None, fill_width=0.1, height=None, width=None, threshold=None, distance=None, prominence=0.001):
+    def scattering_range_of_interest(self, profile_type="variance", str_name=None, fill_width=0.1, height=None, width=None, threshold=None, distance=None, prominence=0.001, save_path=None):
 
+        _eff_save = save_path if save_path is not None else self._default_figure_save_path
         if width != None:
             width = width/self.pixel_size_inv_Ang
 
@@ -1895,13 +2147,22 @@ class radial_profile_analysis():
             # ax.set_facecolor("lightgray")
             ax.legend(loc="right")
             fig.tight_layout()
-            plt.show()
+            if _eff_save is not None:
+                os.makedirs(os.path.dirname(os.path.abspath(_eff_save)), exist_ok=True)
+                base, ext = os.path.splitext(_eff_save)
+                if not ext:
+                    ext = '.png'
+                fig.savefig(f"{base}_sub_{i}{ext}", bbox_inches='tight')
+                plt.close(fig)
+            else:
+                plt.show()
             
         self.peak_sub = peak_sub
 
     
-    def variance_map(self, sv_range=None, peaks=None, fill_width=0.1, visual_title=True):
+    def variance_map(self, sv_range=None, peaks=None, fill_width=0.1, visual_title=True, save_path=None):
 
+        _eff_save = save_path if save_path is not None else self._default_figure_save_path
         if peaks != None:
             for i, peak in enumerate(peaks):
                 sv_range = [peak-fill_width, peak+fill_width]
@@ -1930,7 +2191,15 @@ class radial_profile_analysis():
                     plt.subplots_adjust(hspace=0.1, wspace=0.1)
                     if visual_title:
                         fig.tight_layout()
-                    plt.show()
+                    if _eff_save is not None:
+                        os.makedirs(os.path.dirname(os.path.abspath(_eff_save)), exist_ok=True)
+                        base, ext = os.path.splitext(_eff_save)
+                        if not ext:
+                            ext = '.png'
+                        fig.savefig(f"{base}_peak_{p}_sub_{i}{ext}", bbox_inches='tight')
+                        plt.close(fig)
+                    else:
+                        plt.show()
                 
         
                 # to specify the absolute threshold value to make the binary variance map
@@ -1953,7 +2222,15 @@ class radial_profile_analysis():
                 ax.legend()
                 fig.suptitle("mean and standard deviation of the variance maps above")
                 fig.tight_layout()
-                plt.show()
+                if _eff_save is not None:
+                    os.makedirs(os.path.dirname(os.path.abspath(_eff_save)), exist_ok=True)
+                    base, ext = os.path.splitext(_eff_save)
+                    if not ext:
+                        ext = '.png'
+                    fig.savefig(f"{base}_peak_{p}_mean_std{ext}", bbox_inches='tight')
+                    plt.close(fig)
+                else:
+                    plt.show()
             
         elif sv_range != None and sv_range != []:
             self.sv_range = sv_range
@@ -1982,7 +2259,15 @@ class radial_profile_analysis():
                 plt.subplots_adjust(hspace=0.1, wspace=0.1)
                 if visual_title:
                     fig.tight_layout()
-                plt.show()
+                if _eff_save is not None:
+                    os.makedirs(os.path.dirname(os.path.abspath(_eff_save)), exist_ok=True)
+                    base, ext = os.path.splitext(_eff_save)
+                    if not ext:
+                        ext = '.png'
+                    fig.savefig(f"{base}_svrange_sub_{i}{ext}", bbox_inches='tight')
+                    plt.close(fig)
+                else:
+                    plt.show()
             
     
             # to specify the absolute threshold value to make the binary variance map
@@ -2005,14 +2290,23 @@ class radial_profile_analysis():
             ax.legend()
             fig.suptitle("mean and standard deviation of the variance maps above")
             fig.tight_layout()
-            plt.show()
+            if _eff_save is not None:
+                os.makedirs(os.path.dirname(os.path.abspath(_eff_save)), exist_ok=True)
+                base, ext = os.path.splitext(_eff_save)
+                if not ext:
+                    ext = '.png'
+                fig.savefig(f"{base}_svrange_mean_std{ext}", bbox_inches='tight')
+                plt.close(fig)
+            else:
+                plt.show()
         
         else:
             print("The scattering vector range must be specified!")
             return
  
 
-    def high_variance_map(self, abs_threshold=None, peaks=None, fill_width=0.1, percentile_threshold=90, visual_title=True):
+    def high_variance_map(self, abs_threshold=None, peaks=None, fill_width=0.1, percentile_threshold=90, visual_title=True, save_path=None):
+        _eff_save = save_path if save_path is not None else self._default_figure_save_path
         # binary variance map (leave only large variances for the range specified above)
         # abosulte variance map threshold (pixel value > abs_threshold will be 1, otherwise it will be 0)
         if peaks != None:
@@ -2065,7 +2359,15 @@ class radial_profile_analysis():
                     sp_tot /= total_num
                 ax_tot[0].plot(self.x_axis, sp_tot[self.range_ind[0]:self.range_ind[1]], 'k-')
                 fig_tot.tight_layout()
-                plt.show()
+                if _eff_save is not None:
+                    os.makedirs(os.path.dirname(os.path.abspath(_eff_save)), exist_ok=True)
+                    base, ext = os.path.splitext(_eff_save)
+                    if not ext:
+                        ext = '.png'
+                    fig_tot.savefig(f"{base}_peaks_{p}{ext}", bbox_inches='tight')
+                    plt.close(fig_tot)
+                else:
+                    plt.show()
 
         elif percentile_threshold != None:     
             thresh_var_split = []
@@ -2127,7 +2429,15 @@ class radial_profile_analysis():
                 sp_tot /= total_num
             ax_tot[0].plot(self.x_axis, sp_tot[self.range_ind[0]:self.range_ind[1]], 'k-')
             fig_tot.tight_layout()
-            plt.show()
+            if _eff_save is not None:
+                os.makedirs(os.path.dirname(os.path.abspath(_eff_save)), exist_ok=True)
+                base, ext = os.path.splitext(_eff_save)
+                if not ext:
+                    ext = '.png'
+                fig_tot.savefig(f"{base}_percentile{ext}", bbox_inches='tight')
+                plt.close(fig_tot)
+            else:
+                plt.show()
                 
             self.thresh_var_split = thresh_var_split
             return sp_tot
@@ -2182,7 +2492,15 @@ class radial_profile_analysis():
                 sp_tot /= total_num
             ax_tot[0].plot(self.x_axis, sp_tot[self.range_ind[0]:self.range_ind[1]], 'k-')
             fig_tot.tight_layout()
-            plt.show()
+            if _eff_save is not None:
+                os.makedirs(os.path.dirname(os.path.abspath(_eff_save)), exist_ok=True)
+                base, ext = os.path.splitext(_eff_save)
+                if not ext:
+                    ext = '.png'
+                fig_tot.savefig(f"{base}_abs_threshold{ext}", bbox_inches='tight')
+                plt.close(fig_tot)
+            else:
+                plt.show()
                 
             self.thresh_var_split = thresh_var_split
             return sp_tot
@@ -2192,7 +2510,8 @@ class radial_profile_analysis():
             return
 
     
-    def Xcorrel(self, str_name=None, profile_type="mean", visual_title=True):
+    def Xcorrel(self, str_name=None, profile_type="mean", visual_title=True, save_path=None):
+        _eff_save = save_path if save_path is not None else self._default_figure_save_path
         xcor_val_split = []
         xcor_sh_split = []
 
@@ -2249,10 +2568,19 @@ class radial_profile_analysis():
         
             fig.suptitle(self.subfolders[i]+' cross-correlation - value')
             fig.tight_layout()
-            plt.show()
+            if _eff_save is not None:
+                os.makedirs(os.path.dirname(os.path.abspath(_eff_save)), exist_ok=True)
+                base, ext = os.path.splitext(_eff_save)
+                if not ext:
+                    ext = '.png'
+                fig.savefig(f"{base}_sub_{i}{ext}", bbox_inches='tight')
+                plt.close(fig)
+            else:
+                plt.show()
 
     
-    def high_Xcorr(self, value_threshold=5.0, shift_threshold=0.3, visual_title=True):
+    def high_Xcorr(self, value_threshold=5.0, shift_threshold=0.3, visual_title=True, save_path=None):
+        _eff_save = save_path if save_path is not None else self._default_figure_save_path
         thresh_xcor_split = []
         fig_tot, ax_tot = plt.subplots(1, 2, figsize=(16, 6), dpi=100)
         sp_tot = np.zeros(self.profile_length)
@@ -2319,12 +2647,21 @@ class radial_profile_analysis():
             sp_tot /= total_num
         ax_tot[0].plot(self.x_axis, sp_tot[self.range_ind[0]:self.range_ind[1]], 'k-')
         fig_tot.tight_layout()
-        plt.show()
+        if _eff_save is not None:
+            os.makedirs(os.path.dirname(os.path.abspath(_eff_save)), exist_ok=True)
+            base, ext = os.path.splitext(_eff_save)
+            if not ext:
+                ext = '.png'
+            fig_tot.savefig(f"{base}_xcorr_total{ext}", bbox_inches='tight')
+            plt.close(fig_tot)
+        else:
+            plt.show()
         self.thresh_xcor_split = thresh_xcor_split
         return sp_tot
 
 
-    def sum_edx(self, edx_from, edx_to, offset=0.0, edx_scale=0.01, total_edx=False, visual=True, visual_title=True, title_font_size=10, axis_off=True):
+    def sum_edx(self, edx_from, edx_to, offset=0.0, edx_scale=0.01, total_edx=False, visual=True, visual_title=True, title_font_size=10, axis_off=True, save_path=None):
+        _eff_save = save_path if save_path is not None else self._default_figure_save_path
         if self.simult_edx == False:
             self.edx_range_flag = False
             print("Warning! EDX data not loaded!")
@@ -2354,7 +2691,15 @@ class radial_profile_analysis():
             ax.plot(self.edx_range[self.edx_range_ind[0]:self.edx_range_ind[1]], tot_edx[self.edx_offset_ind[0]:self.edx_offset_ind[1]], 'k-')
             ax.tick_params(axis="both", labelsize=15)
             fig.tight_layout()
-            plt.show()
+            if _eff_save is not None:
+                os.makedirs(os.path.dirname(os.path.abspath(_eff_save)), exist_ok=True)
+                base, ext = os.path.splitext(_eff_save)
+                if not ext:
+                    ext = '.png'
+                fig.savefig(f"{base}_total_edx{ext}", bbox_inches='tight')
+                plt.close(fig)
+            else:
+                plt.show()
 
             self.tot_edx = tot_edx     
 
@@ -2380,10 +2725,19 @@ class radial_profile_analysis():
                         ax.flat[j*2+1].tick_params(axis="y", labelsize=0, color='white')
                 fig.suptitle(self.subfolders[i]+' EDX intensity map and mean EDX spectrum')
                 fig.tight_layout()
-                plt.show()        
+                if _eff_save is not None:
+                    os.makedirs(os.path.dirname(os.path.abspath(_eff_save)), exist_ok=True)
+                    base, ext = os.path.splitext(_eff_save)
+                    if not ext:
+                        ext = '.png'
+                    fig.savefig(f"{base}_sub_{i}{ext}", bbox_inches='tight')
+                    plt.close(fig)
+                else:
+                    plt.show()        
 
 
-    def edx_count(self):
+    def edx_count(self, save_path=None):
+        _eff_save = save_path if save_path is not None else self._default_figure_save_path
         if self.simult_edx == False:
             print("Warning! EDX data not loaded!")
             return
@@ -2403,15 +2757,24 @@ class radial_profile_analysis():
         ax.hist(count_list, color='black', log=True, bins=len(uq_count))
         ax.tick_params(axis="both", labelsize=15)
         fig.tight_layout()
-        plt.show()
+        if _eff_save is not None:
+            os.makedirs(os.path.dirname(os.path.abspath(_eff_save)), exist_ok=True)
+            base, ext = os.path.splitext(_eff_save)
+            if not ext:
+                ext = '.png'
+            fig.savefig(f"{base}_edx_count{ext}", bbox_inches='tight')
+            plt.close(fig)
+        else:
+            plt.show()
 
         self.uq_count = uq_count
         self.count_list = count_list
 
 
     def edx_classification(self, threshold_map="NMF", visual_title=True, 
-                           title_font_size=10, axis_off=True, visual_individual=True):
+                           title_font_size=10, axis_off=True, visual_individual=True, save_path=None):
         
+        _eff_save = save_path if save_path is not None else self._default_figure_save_path
         if self.simult_edx == False:
             print("Warning! EDX data not loaded!")
             return
@@ -2465,7 +2828,15 @@ class radial_profile_analysis():
             ax_tot[1].legend()
             fig_tot.suptitle(self.subfolders[i]+' mean EDX spectrum for all high-variance maps')
             fig_tot.tight_layout()
-            plt.show()
+            if _eff_save is not None:
+                os.makedirs(os.path.dirname(os.path.abspath(_eff_save)), exist_ok=True)
+                base, ext = os.path.splitext(_eff_save)
+                if not ext:
+                    ext = '.png'
+                fig_tot.savefig(f"{base}_variance_edx_total{ext}", bbox_inches='tight')
+                plt.close(fig_tot)
+            else:
+                plt.show()
 
             return sp_tot
 
@@ -2519,7 +2890,15 @@ class radial_profile_analysis():
             ax_tot[1].legend()
             fig_tot.suptitle(self.subfolders[i]+' mean EDX spectrum for all high-cross-correlation maps')
             fig_tot.tight_layout()
-            plt.show()
+            if _eff_save is not None:
+                os.makedirs(os.path.dirname(os.path.abspath(_eff_save)), exist_ok=True)
+                base, ext = os.path.splitext(_eff_save)
+                if not ext:
+                    ext = '.png'
+                fig_tot.savefig(f"{base}_xcorr_edx_total{ext}", bbox_inches='tight')
+                plt.close(fig_tot)
+            else:
+                plt.show()
 
             return sp_tot
         
@@ -2585,7 +2964,15 @@ class radial_profile_analysis():
             ax_lv.legend()
             fig_lv.suptitle("Compare the mean of EDX spectra between loading vectors")
             fig_lv.tight_layout()
-            plt.show()
+            if _eff_save is not None:
+                os.makedirs(os.path.dirname(os.path.abspath(_eff_save)), exist_ok=True)
+                base, ext = os.path.splitext(_eff_save)
+                if not ext:
+                    ext = '.png'
+                fig_lv.savefig(f"{base}_nmf_edx_lv_compare{ext}", bbox_inches='tight')
+                plt.close(fig_lv)
+            else:
+                plt.show()
 
             return lv_tot
         
@@ -2593,8 +2980,9 @@ class radial_profile_analysis():
             print("Warning! unavailable type!")
 
     
-    def summary_save(self, sv_range=None, percentile_threshold=None, save=False, also_dp=False, log_scale_dp=False, also_tiff=False, specific_data=[]):
+    def summary_save(self, sv_range=None, percentile_threshold=None, save=False, also_dp=False, log_scale_dp=False, also_tiff=False, specific_data=[], figure_save_path=None):
         
+        _eff_save = figure_save_path if figure_save_path is not None else self._default_figure_save_path
         for i in range(len(self.subfolders)):
             num_img = len(self.radial_var_split[i])
             max_dps = []
@@ -2715,6 +3103,15 @@ class radial_profile_analysis():
 
                         fig.suptitle(self.subfolders[i]+" - "+os.path.basename(self.loaded_data_path[i][j])[:15])
                         fig.tight_layout()
+                        if _eff_save is not None:
+                            os.makedirs(os.path.dirname(os.path.abspath(_eff_save)), exist_ok=True)
+                            base, ext = os.path.splitext(_eff_save)
+                            if not ext:
+                                ext = '.png'
+                            fig.savefig(f"{base}_summary_{i}_{j}{ext}", bbox_inches='tight')
+                            plt.close(fig)
+                        else:
+                            plt.show()
 
                         if save:
                             sum_map = hs.signals.Signal2D(sum_map)
@@ -2760,11 +3157,20 @@ class radial_profile_analysis():
                     ax_dp[1].axis("off")
                     ax_dp[1].set_title("sum of all diffraction patterns")
                     fig_dp.tight_layout()
-                    plt.show()
+                    if _eff_save is not None:
+                        os.makedirs(os.path.dirname(os.path.abspath(_eff_save)), exist_ok=True)
+                        base, ext = os.path.splitext(_eff_save)
+                        if not ext:
+                            ext = '.png'
+                        fig_dp.savefig(f"{base}_dp{ext}", bbox_inches='tight')
+                        plt.close(fig_dp)
+                    else:
+                        plt.show()
 
 
-    def summary_save(self, sv_range=None, percentile_threshold=None, save=False, also_dp=False, log_scale_dp=False, also_tiff=False):
+    def summary_save(self, sv_range=None, percentile_threshold=None, save=False, also_dp=False, log_scale_dp=False, also_tiff=False, figure_save_path=None):
 
+        _eff_save = figure_save_path if figure_save_path is not None else self._default_figure_save_path
         for i in range(len(self.subfolders)):
             num_img = len(self.radial_var_split[i])
             max_dps = []
@@ -2882,6 +3288,15 @@ class radial_profile_analysis():
          
                 fig.suptitle(self.subfolders[i]+" - "+os.path.basename(self.loaded_data_path[i][j])[:15])
                 fig.tight_layout()
+                if _eff_save is not None:
+                    os.makedirs(os.path.dirname(os.path.abspath(_eff_save)), exist_ok=True)
+                    base, ext = os.path.splitext(_eff_save)
+                    if not ext:
+                        ext = '.png'
+                    fig.savefig(f"{base}_summary_{i}_{j}{ext}", bbox_inches='tight')
+                    plt.close(fig)
+                else:
+                    plt.show()
         
                 if save:
                     sum_map = hs.signals.Signal2D(sum_map)
@@ -2927,7 +3342,15 @@ class radial_profile_analysis():
             ax_dp[1].axis("off")
             ax_dp[1].set_title("sum of all diffraction patterns")
             fig_dp.tight_layout()
-            plt.show()
+            if _eff_save is not None:
+                os.makedirs(os.path.dirname(os.path.abspath(_eff_save)), exist_ok=True)
+                base, ext = os.path.splitext(_eff_save)
+                if not ext:
+                    ext = '.png'
+                fig_dp.savefig(f"{base}_dp_summary_{i}{ext}", bbox_inches='tight')
+                plt.close(fig_dp)
+            else:
+                plt.show()
 
     def summary_report(self):
         """Generates a comprehensive Markdown report summarizing the data processing and analysis results."""

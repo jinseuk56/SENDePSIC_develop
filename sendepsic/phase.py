@@ -14,6 +14,30 @@ from .utils import (
 )
 
 class phase_analysis:
+
+    def __init__(self):
+        self._default_figure_save_path = None
+
+    def set_figure_save_path(self, path):
+        """Set a default base path for saving all figures.
+        
+        When set, all visualization methods will automatically save figures
+        to disk using this as the base path prefix, without needing to
+        specify save_path on each call. Individual method calls can still
+        override this with their own save_path argument.
+        
+        Parameters
+        ----------
+        path : str or None
+            Base file path prefix (e.g. '/results/sample_A'). Extension is
+            optional; .png is used by default. Pass None to revert to
+            notebook display mode.
+        """
+        self._default_figure_save_path = path
+        if path is not None:
+            print(f"Default figure save path set to: {path}")
+        else:
+            print("Default figure save path cleared. Figures will display in notebook.")
     def phase_matching_initialization(self, str_path, target_structures, profile, num_comp, num_sub=1, crop=None, color_rep=None):
         
         self.str_path = str_path
@@ -45,7 +69,8 @@ class phase_analysis:
 
         self.experimental_cols = [f'LV{i}' for i in range(1, self.num_comp+1)]
 
-    def profile_comparison(self, profile_k_step, max_num_peaks=3, ylim=None, line_color=None, show_legend=True):
+    def profile_comparison(self, profile_k_step, max_num_peaks=3, ylim=None, line_color=None, show_legend=True, save_path=None):
+        _eff_save = save_path if save_path is not None else self._default_figure_save_path
         k_range = []
         for i in range(self.crop[0], self.crop[1], 1):
             k_range.append(profile_k_step*i)
@@ -84,10 +109,19 @@ class phase_analysis:
                 ax.legend()
             fig.suptitle("LV%d"%(lv+1))
             fig.tight_layout()
-            plt.show()
+            if _eff_save is not None:
+                os.makedirs(os.path.dirname(os.path.abspath(_eff_save)), exist_ok=True)
+                base, ext = os.path.splitext(_eff_save)
+                if not ext:
+                    ext = '.png'
+                fig.savefig(f"{base}_profile_comparison_lv_{lv+1}{ext}", bbox_inches='tight')
+                plt.close(fig)
+            else:
+                plt.show()
 
 
-    def simple_comparsion(self, cif_adr, profile_k_step, max_num_peaks, xrd_k_step, broadening, xrd_peak_prominence, ylim=None):
+    def simple_comparsion(self, cif_adr, profile_k_step, max_num_peaks, xrd_k_step, broadening, xrd_peak_prominence, ylim=None, save_path=None):
+        _eff_save = save_path if save_path is not None else self._default_figure_save_path
         k_range = []
         for i in range(self.crop[0], self.crop[1], 1):
             k_range.append(profile_k_step*i)
@@ -137,7 +171,15 @@ class phase_analysis:
                 
                 ax.legend()
                 fig.tight_layout()
-                plt.show()
+                if _eff_save is not None:
+                    os.makedirs(os.path.dirname(os.path.abspath(_eff_save)), exist_ok=True)
+                    base, ext = os.path.splitext(_eff_save)
+                    if not ext:
+                        ext = '.png'
+                    fig.savefig(f"{base}_simple_comparison_sub_{i}_lv_{lv}{ext}", bbox_inches='tight')
+                    plt.close(fig)
+                else:
+                    plt.show()
 
             k+=self.num_comp        
 
@@ -543,7 +585,8 @@ class phase_analysis:
             for i, label in enumerate(label_list):
                 print(f"{label}\t{int(mean_areas[s][i])}\t{std_areas[s][i]:.2f}\t{int(total_areas[s][i])}\t{total_areas[s][i]*100/np.sum(total_areas[s]):.1f}")
 
-    def closest_neighbor_analysis(self, prox_neighbors=3, plot_result=False):
+    def closest_neighbor_analysis(self, prox_neighbors=3, plot_result=False, save_path=None):
+        _eff_save = save_path if save_path is not None else self._default_figure_save_path
         self.df_summary['ID'] = range(len(self.df_summary))
         
         # Trackers for global and sub-index levels
@@ -624,7 +667,7 @@ class phase_analysis:
             sub_index_proximities[sub_idx] = p_df
 
         # --- Generate and display plots ---
-        if plot_result:
+        if plot_result or _eff_save is not None:
             print("--- Global Nearest Neighboring Phase ---")
             print("Source LV\tNeighbor LV")
             for i, row in global_prox_df.iterrows():
@@ -632,8 +675,15 @@ class phase_analysis:
                 if sum(values) > 0:
                     print("%d\t\t%d" % (i, all_lvs[np.argmax(values)]))
 
-            self._plot_heatmap(global_hist_df, "Count", 'Closest Neighbor LV', 'Source LV', 'seismic', title="Global Neighborhood: Count")
-            self._plot_heatmap(global_prox_df, "Percentage (%)", 'Neighbor LV', 'Source LV', 'seismic', title="Global Neighborhood: Percentage", is_percentage=True)
+            base, ext = ("", "")
+            if _eff_save is not None:
+                os.makedirs(os.path.dirname(os.path.abspath(_eff_save)), exist_ok=True)
+                base, ext = os.path.splitext(_eff_save)
+                if not ext:
+                    ext = '.png'
+
+            self._plot_heatmap(global_hist_df, "Count", 'Closest Neighbor LV', 'Source LV', 'seismic', title="Global Neighborhood: Count", _eff_save=f"{base}_global_count{ext}" if _eff_save else None)
+            self._plot_heatmap(global_prox_df, "Percentage (%)", 'Neighbor LV', 'Source LV', 'seismic', title="Global Neighborhood: Percentage", is_percentage=True, _eff_save=f"{base}_global_percentage{ext}" if _eff_save else None)
 
             if len(sub_index_histograms) > 1:
                 for sub_idx in sub_index_histograms:
@@ -646,11 +696,13 @@ class phase_analysis:
                     
                     self._plot_heatmap(
                         sub_index_histograms[sub_idx], "Count", 'Closest Neighbor LV', 'Source LV', 'seismic', 
-                        title=f"Sub Index [{sub_idx}]: Count"
+                        title=f"Sub Index [{sub_idx}]: Count",
+                        _eff_save=f"{base}_sub_{sub_idx}_count{ext}" if _eff_save else None
                     )
                     self._plot_heatmap(
                         sub_index_proximities[sub_idx], "Percentage (%)", 'Neighbor LV', 'Source LV', 'seismic', 
-                        title=f"Sub Index [{sub_idx}]: Percentage", is_percentage=True
+                        title=f"Sub Index [{sub_idx}]: Percentage", is_percentage=True,
+                        _eff_save=f"{base}_sub_{sub_idx}_percentage{ext}" if _eff_save else None
                     )
 
         self.global_hist_df = global_hist_df
@@ -661,7 +713,8 @@ class phase_analysis:
         return global_hist_df, global_prox_df, sub_index_histograms, sub_index_proximities
 
     # Updated to accept a 'title' parameter
-    def _plot_heatmap(self, df, cbar_label, xlabel, ylabel, cmap, title="", is_percentage=False):
+    def _plot_heatmap(self, df, cbar_label, xlabel, ylabel, cmap, title="", is_percentage=False, save_path=None):
+        _eff_save = save_path if save_path is not None else self._default_figure_save_path
         fig, ax = plt.subplots(figsize=(5, 4), dpi=100)
         im = ax.imshow(df, cmap=cmap)
 
@@ -688,7 +741,11 @@ class phase_analysis:
         
         ax.tick_params(top=True, labeltop=True, bottom=False, labelbottom=False)
         fig.tight_layout()
-        plt.show()
+        if _eff_save is not None:
+            fig.savefig(_eff_save, bbox_inches='tight')
+            plt.close(fig)
+        else:
+            plt.show()
 
     def summary_report(self):
         """Generates a comprehensive Markdown report of the phase matching and structure allocation results."""

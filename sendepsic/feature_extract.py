@@ -95,8 +95,30 @@ class feature_extract():
                 print("Data shape")
                 print(self.original_data_shape)
                 print("Spectrum length: %d"%self.num_dim)
+        self._default_figure_save_path = None
 
 
+
+    def set_figure_save_path(self, path):
+        """Set a default base path for saving all figures.
+        
+        When set, all visualization methods will automatically save figures
+        to disk using this as the base path prefix, without needing to
+        specify save_path on each call. Individual method calls can still
+        override this with their own save_path argument.
+        
+        Parameters
+        ----------
+        path : str or None
+            Base file path prefix (e.g. '/results/sample_A'). Extension is
+            optional; .png is used by default. Pass None to revert to
+            notebook display mode.
+        """
+        self._default_figure_save_path = path
+        if path is not None:
+            print(f"Default figure save path set to: {path}")
+        else:
+            print("Default figure save path cleared. Figures will display in notebook.")
     def make_input(self, min_val=0.0, max_normalize=True, rescale_0to1=False, log_scale=False):
         dataset_flat = []
         for i in range(self.num_img):
@@ -128,7 +150,8 @@ class feature_extract():
         self.dataset_input = self.dataset_input.astype(np.float32)
 
 
-    def ini_DR(self, method="nmf", num_comp=5, result_visual=True, intensity_range="absolute", tolerance=1E-4, max_iteration=2000):
+    def ini_DR(self, method="nmf", num_comp=5, result_visual=True, intensity_range="absolute", tolerance=1E-4, max_iteration=2000, save_path=None):
+        _eff_save = save_path if save_path is not None else self._default_figure_save_path
         self.DR_num_comp = num_comp
         if method=="nmf":
             self.DR = NMF(n_components=num_comp, init="nndsvda", solver="mu", max_iter=max_iteration, verbose=result_visual, tol=tolerance)
@@ -148,7 +171,8 @@ class feature_extract():
         self.DR_coeffs = coeffs
         self.coeffs_reshape = reshape_coeff(self.DR_coeffs, self.data_shape)
         
-        if result_visual:
+        if result_visual or _eff_save is not None:
+            import os
             fig, ax = plt.subplots(1, 1, figsize=(6, 4), dpi=100)
             for i in range(self.DR_num_comp):
                 tmp_ax, = ax.plot(self.dat_dim_range, self.DR_comp_vectors[i], "-", c=self.color_rep[i+1], label="loading vector %d"%(i+1))
@@ -159,7 +183,15 @@ class feature_extract():
             ax.set_xlabel(self.dat_unit, fontsize=10)
             ax.tick_params(axis="x", labelsize=10)
             fig.tight_layout()
-            plt.show()
+            if _eff_save is not None:
+                os.makedirs(os.path.dirname(os.path.abspath(_eff_save)), exist_ok=True)
+                base, ext = os.path.splitext(_eff_save)
+                if not ext:
+                    ext = '.png'
+                fig.savefig(f"{base}_loading_vectors{ext}", bbox_inches='tight')
+                plt.close(fig)
+            else:
+                plt.show()
             
             if intensity_range == "relative":
                 for i in range(self.num_img):
@@ -170,7 +202,14 @@ class feature_extract():
                         ax[j].axis("off")
                         fig.colorbar(tmp, cax=fig.add_axes([0.92, 0.15, 0.04, 0.7]))
                     fig.suptitle(self.file_adr[i] if self.file_adr else f"Image {i+1}")
-                    plt.show()
+                    if _eff_save is not None:
+                        base, ext = os.path.splitext(_eff_save)
+                        if not ext:
+                            ext = '.png'
+                        fig.savefig(f"{base}_intensity_map_{i}{ext}", bbox_inches='tight')
+                        plt.close(fig)
+                    else:
+                        plt.show()
             else:               
                 min_val = np.min(coeffs)
                 max_val = np.max(coeffs)
@@ -182,4 +221,11 @@ class feature_extract():
                         ax[j].axis("off")
                         fig.colorbar(tmp, cax=fig.add_axes([0.92, 0.15, 0.04, 0.7]))
                     fig.suptitle(self.file_adr[i] if self.file_adr else f"Image {i+1}")
-                    plt.show()
+                    if _eff_save is not None:
+                        base, ext = os.path.splitext(_eff_save)
+                        if not ext:
+                            ext = '.png'
+                        fig.savefig(f"{base}_intensity_map_{i}{ext}", bbox_inches='tight')
+                        plt.close(fig)
+                    else:
+                        plt.show()
