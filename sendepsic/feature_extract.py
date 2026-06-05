@@ -151,7 +151,7 @@ class feature_extract():
 
 
     def ini_DR(self, method="nmf", num_comp=5, result_visual=True, intensity_range="absolute", tolerance=1E-4, max_iteration=2000, save_path=None):
-        _eff_save = save_path if save_path is not None else self._default_figure_save_path
+        _eff_save = save_path if save_path is not None else (os.path.join(self._default_figure_save_path, 'ini_DR') if self._default_figure_save_path is not None else None)
         self.DR_num_comp = num_comp
         if method=="nmf":
             self.DR = NMF(n_components=num_comp, init="nndsvda", solver="mu", max_iter=max_iteration, verbose=result_visual, tol=tolerance)

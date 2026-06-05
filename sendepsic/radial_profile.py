@@ -388,7 +388,7 @@ class radial_profile_analysis():
 
 
     def print_colormaps(self, save_path=None):
-        _eff_save = save_path if save_path is not None else self._default_figure_save_path
+        _eff_save = save_path if save_path is not None else (os.path.join(self._default_figure_save_path, 'print_colormaps') if self._default_figure_save_path is not None else None)
         gradient = np.linspace(0, 1, 256)
         gradient = np.vstack((gradient, gradient))
 
@@ -406,7 +406,7 @@ class radial_profile_analysis():
 
 
     def center_beam_alignment_check(self, crop=[0, -1, 0, -1], visual_title=True, title_font_size=10, save_path=None):
-        _eff_save = save_path if save_path is not None else self._default_figure_save_path
+        _eff_save = save_path if save_path is not None else (os.path.join(self._default_figure_save_path, 'center_beam_alignment_check') if self._default_figure_save_path is not None else None)
 
         self.crop = crop
         top, bottom, left, right = self.crop
@@ -445,7 +445,7 @@ class radial_profile_analysis():
 
 
     def intensity_integration_image(self, visual_title=True, title_font_size=10, save_path=None):
-        _eff_save = save_path if save_path is not None else self._default_figure_save_path
+        _eff_save = save_path if save_path is not None else (os.path.join(self._default_figure_save_path, 'intensity_integration_image') if self._default_figure_save_path is not None else None)
     
         for i in range(len(self.subfolders)):
             num_img = len(self.radial_avg_split[i])
@@ -483,7 +483,7 @@ class radial_profile_analysis():
     def basic_setup(self, str_path, from_unit, to_unit, broadening=0.01, 
                     fill_width=0.1, height=None, width=None, threshold=None, 
                     distance=None, prominence=0.001, visual=True, visual_legend=True, save_path=None):
-        _eff_save = save_path if save_path is not None else self._default_figure_save_path
+        _eff_save = save_path if save_path is not None else (os.path.join(self._default_figure_save_path, 'basic_setup') if self._default_figure_save_path is not None else None)
         print("Original scattering vector range = [%.6f, %.6f]"%(0, self.profile_length*self.pixel_size_inv_Ang))
         
         self.str_path = str_path
@@ -580,7 +580,7 @@ class radial_profile_analysis():
     def sum_radial_profile(self, str_name=None, profile_type="variance", 
                            visual_legend=True, visual_title=True, title_font_size=10,
                            axis_off=True, individual_visual=True, save_path=None):            
-        _eff_save = save_path if save_path is not None else self._default_figure_save_path
+        _eff_save = save_path if save_path is not None else (os.path.join(self._default_figure_save_path, 'sum_radial_profile') if self._default_figure_save_path is not None else None)
         
         fig_tot, ax_tot = plt.subplots(2, 1, figsize=(8, 12), dpi=100)
         
@@ -754,7 +754,7 @@ class radial_profile_analysis():
 
     def NMF_result(self, lv_show=None, transparency_percentile=100, visual_title=True, title_font_size=10, save_path=None):
         
-        _eff_save = save_path if save_path is not None else self._default_figure_save_path
+        _eff_save = save_path if save_path is not None else (os.path.join(self._default_figure_save_path, 'NMF_result') if self._default_figure_save_path is not None else None)
         base, ext = ("", "")
         if _eff_save is not None:
             os.makedirs(os.path.dirname(os.path.abspath(_eff_save)), exist_ok=True)
@@ -917,7 +917,7 @@ class radial_profile_analysis():
 
     def NMF_comparison(self, str_name=None, percentile_threshold=90, ref_variance=0.7, 
                        visual_title=True, title_font_size=10, axis_off=True, visual_individual=True, save_path=None):
-        _eff_save = save_path if save_path is not None else self._default_figure_save_path
+        _eff_save = save_path if save_path is not None else (os.path.join(self._default_figure_save_path, 'NMF_comparison') if self._default_figure_save_path is not None else None)
         self.percentile_threshold = percentile_threshold
         # Show the pixels with high coefficients for each loading vector and the averaged profiles for the mask region
         coeff_split = []
@@ -1140,7 +1140,7 @@ class radial_profile_analysis():
 
     def high_coeff_area_comparison(self, save_path=None):
 
-        _eff_save = save_path if save_path is not None else self._default_figure_save_path
+        _eff_save = save_path if save_path is not None else (os.path.join(self._default_figure_save_path, 'high_coeff_area_comparison') if self._default_figure_save_path is not None else None)
         lv_coeff_area_mean = []
         lv_coeff_area_std = []
         for lv in range(self.num_comp):
@@ -1175,7 +1175,7 @@ class radial_profile_analysis():
 
 
     def NMF_summary_save(self, save=False, also_dp=False, log_scale_dp=True, also_tiff=False, fill_width=0.01, prominence_lv=0.001, prominence_profile=0.001, figure_save_path=None):
-        _eff_save = figure_save_path if figure_save_path is not None else self._default_figure_save_path
+        _eff_save = figure_save_path if figure_save_path is not None else (os.path.join(self._default_figure_save_path, 'NMF_summary_save') if self._default_figure_save_path is not None else None)
         for i in range(len(self.subfolders)):
             num_img = len(self.radial_var_split[i])
             for j in range(num_img):
@@ -1352,7 +1352,7 @@ class radial_profile_analysis():
 
           
     def NMF_summary_save_specific(self, save=False, also_dp=False, log_scale_dp=True, also_tiff=False, fill_width=0.01, prominence_lv=0.001, prominence_profile=0.001, specific_data=[], figure_save_path=None):
-        _eff_save = figure_save_path if figure_save_path is not None else self._default_figure_save_path
+        _eff_save = figure_save_path if figure_save_path is not None else (os.path.join(self._default_figure_save_path, 'NMF_summary_save_specific') if self._default_figure_save_path is not None else None)
         for i in range(len(self.subfolders)):
             num_img = len(self.radial_var_split[i])
             for j in range(num_img):
@@ -1531,7 +1531,7 @@ class radial_profile_analysis():
 
                                                 
     def effective_small_area(self, data_key, threshold_map="NMF", algorithm="DBSCAN", eps=1.5, min_sample=16, visual_result=True, save_path=None):
-        _eff_save = save_path if save_path is not None else self._default_figure_save_path
+        _eff_save = save_path if save_path is not None else (os.path.join(self._default_figure_save_path, 'effective_small_area') if self._default_figure_save_path is not None else None)
         self.threshold_map_small = threshold_map
         self.clustering_params = {
             "data_key": data_key,
@@ -1624,7 +1624,7 @@ class radial_profile_analysis():
         
 
     def small_area_investigation(self, visual_cluster=True, visual_dp=False, log_dp=True, save=False, also_tiff=False, virtual_4D=False, save_path=None, boundary_method=None, concave_ratio=None, figures_save_path=None): 
-        _eff_save = figures_save_path if figures_save_path is not None else self._default_figure_save_path
+        _eff_save = figures_save_path if figures_save_path is not None else (os.path.join(self._default_figure_save_path, 'small_area_investigation') if self._default_figure_save_path is not None else None)
         if boundary_method is None:
             boundary_method = self.boundary_method
         if concave_ratio is None:
@@ -1850,7 +1850,7 @@ class radial_profile_analysis():
 
 
     def overlap_check(self, visual_lv=False, save_path=None):
-        _eff_save = save_path if save_path is not None else self._default_figure_save_path
+        _eff_save = save_path if save_path is not None else (os.path.join(self._default_figure_save_path, 'overlap_check') if self._default_figure_save_path is not None else None)
         if self.threshold_map_small == 'NMF':
             fig_tot, ax_tot = plt.subplots(1, 1, figsize=(6, 6), dpi=100)
             for lv in range(self.num_comp):
@@ -1912,7 +1912,7 @@ class radial_profile_analysis():
     def single_phase_investigation(self, visual=True, fig_save=False, dp_shape=[515, 515], crop_ind=[0, 515, 0, 515],
                                    eps=4.5, min_sample=30, virtual_4D=True, diff_size=False, size_list=None, cut_too_large=None,
                                    boundary_method=None, fill_method=None, concave_ratio=None, save_path=None):
-        _eff_save = save_path if save_path is not None else self._default_figure_save_path
+        _eff_save = save_path if save_path is not None else (os.path.join(self._default_figure_save_path, 'single_phase_investigation') if self._default_figure_save_path is not None else None)
         boundary_method_val = boundary_method if boundary_method is not None else self.boundary_method
         fill_method_val = fill_method if fill_method is not None else self.fill_method
         concave_ratio_val = concave_ratio if concave_ratio is not None else self.concave_ratio
@@ -2090,7 +2090,7 @@ class radial_profile_analysis():
 
     def scattering_range_of_interest(self, profile_type="variance", str_name=None, fill_width=0.1, height=None, width=None, threshold=None, distance=None, prominence=0.001, save_path=None):
 
-        _eff_save = save_path if save_path is not None else self._default_figure_save_path
+        _eff_save = save_path if save_path is not None else (os.path.join(self._default_figure_save_path, 'scattering_range_of_interest') if self._default_figure_save_path is not None else None)
         if width != None:
             width = width/self.pixel_size_inv_Ang
 
@@ -2162,7 +2162,7 @@ class radial_profile_analysis():
     
     def variance_map(self, sv_range=None, peaks=None, fill_width=0.1, visual_title=True, save_path=None):
 
-        _eff_save = save_path if save_path is not None else self._default_figure_save_path
+        _eff_save = save_path if save_path is not None else (os.path.join(self._default_figure_save_path, 'variance_map') if self._default_figure_save_path is not None else None)
         if peaks != None:
             for i, peak in enumerate(peaks):
                 sv_range = [peak-fill_width, peak+fill_width]
@@ -2306,7 +2306,7 @@ class radial_profile_analysis():
  
 
     def high_variance_map(self, abs_threshold=None, peaks=None, fill_width=0.1, percentile_threshold=90, visual_title=True, save_path=None):
-        _eff_save = save_path if save_path is not None else self._default_figure_save_path
+        _eff_save = save_path if save_path is not None else (os.path.join(self._default_figure_save_path, 'high_variance_map') if self._default_figure_save_path is not None else None)
         # binary variance map (leave only large variances for the range specified above)
         # abosulte variance map threshold (pixel value > abs_threshold will be 1, otherwise it will be 0)
         if peaks != None:
@@ -2511,7 +2511,7 @@ class radial_profile_analysis():
 
     
     def Xcorrel(self, str_name=None, profile_type="mean", visual_title=True, save_path=None):
-        _eff_save = save_path if save_path is not None else self._default_figure_save_path
+        _eff_save = save_path if save_path is not None else (os.path.join(self._default_figure_save_path, 'Xcorrel') if self._default_figure_save_path is not None else None)
         xcor_val_split = []
         xcor_sh_split = []
 
@@ -2580,7 +2580,7 @@ class radial_profile_analysis():
 
     
     def high_Xcorr(self, value_threshold=5.0, shift_threshold=0.3, visual_title=True, save_path=None):
-        _eff_save = save_path if save_path is not None else self._default_figure_save_path
+        _eff_save = save_path if save_path is not None else (os.path.join(self._default_figure_save_path, 'high_Xcorr') if self._default_figure_save_path is not None else None)
         thresh_xcor_split = []
         fig_tot, ax_tot = plt.subplots(1, 2, figsize=(16, 6), dpi=100)
         sp_tot = np.zeros(self.profile_length)
@@ -2661,7 +2661,7 @@ class radial_profile_analysis():
 
 
     def sum_edx(self, edx_from, edx_to, offset=0.0, edx_scale=0.01, total_edx=False, visual=True, visual_title=True, title_font_size=10, axis_off=True, save_path=None):
-        _eff_save = save_path if save_path is not None else self._default_figure_save_path
+        _eff_save = save_path if save_path is not None else (os.path.join(self._default_figure_save_path, 'sum_edx') if self._default_figure_save_path is not None else None)
         if self.simult_edx == False:
             self.edx_range_flag = False
             print("Warning! EDX data not loaded!")
@@ -2737,7 +2737,7 @@ class radial_profile_analysis():
 
 
     def edx_count(self, save_path=None):
-        _eff_save = save_path if save_path is not None else self._default_figure_save_path
+        _eff_save = save_path if save_path is not None else (os.path.join(self._default_figure_save_path, 'edx_count') if self._default_figure_save_path is not None else None)
         if self.simult_edx == False:
             print("Warning! EDX data not loaded!")
             return
@@ -2774,7 +2774,7 @@ class radial_profile_analysis():
     def edx_classification(self, threshold_map="NMF", visual_title=True, 
                            title_font_size=10, axis_off=True, visual_individual=True, save_path=None):
         
-        _eff_save = save_path if save_path is not None else self._default_figure_save_path
+        _eff_save = save_path if save_path is not None else (os.path.join(self._default_figure_save_path, 'edx_classification') if self._default_figure_save_path is not None else None)
         if self.simult_edx == False:
             print("Warning! EDX data not loaded!")
             return
@@ -2982,7 +2982,7 @@ class radial_profile_analysis():
     
     def summary_save(self, sv_range=None, percentile_threshold=None, save=False, also_dp=False, log_scale_dp=False, also_tiff=False, specific_data=[], figure_save_path=None):
         
-        _eff_save = figure_save_path if figure_save_path is not None else self._default_figure_save_path
+        _eff_save = figure_save_path if figure_save_path is not None else (os.path.join(self._default_figure_save_path, 'summary_save') if self._default_figure_save_path is not None else None)
         for i in range(len(self.subfolders)):
             num_img = len(self.radial_var_split[i])
             max_dps = []
@@ -3170,7 +3170,7 @@ class radial_profile_analysis():
 
     def summary_save(self, sv_range=None, percentile_threshold=None, save=False, also_dp=False, log_scale_dp=False, also_tiff=False, figure_save_path=None):
 
-        _eff_save = figure_save_path if figure_save_path is not None else self._default_figure_save_path
+        _eff_save = figure_save_path if figure_save_path is not None else (os.path.join(self._default_figure_save_path, 'summary_save') if self._default_figure_save_path is not None else None)
         for i in range(len(self.subfolders)):
             num_img = len(self.radial_var_split[i])
             max_dps = []

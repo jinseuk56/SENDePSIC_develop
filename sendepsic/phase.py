@@ -70,7 +70,7 @@ class phase_analysis:
         self.experimental_cols = [f'LV{i}' for i in range(1, self.num_comp+1)]
 
     def profile_comparison(self, profile_k_step, max_num_peaks=3, ylim=None, line_color=None, show_legend=True, save_path=None):
-        _eff_save = save_path if save_path is not None else self._default_figure_save_path
+        _eff_save = save_path if save_path is not None else (os.path.join(self._default_figure_save_path, 'profile_comparison') if self._default_figure_save_path is not None else None)
         k_range = []
         for i in range(self.crop[0], self.crop[1], 1):
             k_range.append(profile_k_step*i)
@@ -121,7 +121,7 @@ class phase_analysis:
 
 
     def simple_comparsion(self, cif_adr, profile_k_step, max_num_peaks, xrd_k_step, broadening, xrd_peak_prominence, ylim=None, save_path=None):
-        _eff_save = save_path if save_path is not None else self._default_figure_save_path
+        _eff_save = save_path if save_path is not None else (os.path.join(self._default_figure_save_path, 'simple_comparsion') if self._default_figure_save_path is not None else None)
         k_range = []
         for i in range(self.crop[0], self.crop[1], 1):
             k_range.append(profile_k_step*i)
@@ -586,7 +586,7 @@ class phase_analysis:
                 print(f"{label}\t{int(mean_areas[s][i])}\t{std_areas[s][i]:.2f}\t{int(total_areas[s][i])}\t{total_areas[s][i]*100/np.sum(total_areas[s]):.1f}")
 
     def closest_neighbor_analysis(self, prox_neighbors=3, plot_result=False, save_path=None):
-        _eff_save = save_path if save_path is not None else self._default_figure_save_path
+        _eff_save = save_path if save_path is not None else (os.path.join(self._default_figure_save_path, 'closest_neighbor_analysis') if self._default_figure_save_path is not None else None)
         self.df_summary['ID'] = range(len(self.df_summary))
         
         # Trackers for global and sub-index levels
@@ -714,7 +714,7 @@ class phase_analysis:
 
     # Updated to accept a 'title' parameter
     def _plot_heatmap(self, df, cbar_label, xlabel, ylabel, cmap, title="", is_percentage=False, save_path=None):
-        _eff_save = save_path if save_path is not None else self._default_figure_save_path
+        _eff_save = save_path if save_path is not None else (os.path.join(self._default_figure_save_path, '_plot_heatmap') if self._default_figure_save_path is not None else None)
         fig, ax = plt.subplots(figsize=(5, 4), dpi=100)
         im = ax.imshow(df, cmap=cmap)
 
