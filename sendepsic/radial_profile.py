@@ -1743,6 +1743,10 @@ class radial_profile_analysis():
             
             if virtual_4D:
                 self.virtual_lv = virtual_lv
+            if 'dataset' in locals():
+                del dataset
+            import gc
+            gc.collect()
             
 
         if self.threshold_map_small == 'variance':
@@ -1847,6 +1851,10 @@ class radial_profile_analysis():
             self.boundary_label = boundary_label
             if virtual_4D:
                 self.virtual_label = virtual_label
+            if 'dataset' in locals():
+                del dataset
+            import gc
+            gc.collect()
 
 
     def overlap_check(self, visual_lv=False, save_path=None):
@@ -1999,7 +2007,7 @@ class radial_profile_analysis():
                     for lv in range(self.num_comp):
                         ind = np.where(lv_label == lv+1)[0]
                         for k in ind:
-                            self.dp_storage['sub_index_%d_LV%d'%(i+1, lv+1)].append(datacube[k][crop_ind[0]:crop_ind[1], crop_ind[2]:crop_ind[3]])
+                            self.dp_storage['sub_index_%d_LV%d'%(i+1, lv+1)].append(datacube[k][crop_ind[0]:crop_ind[1], crop_ind[2]:crop_ind[3]].copy())
                 
                 fig, ax = plt.subplots(1, 1, figsize=(5, 5))
                 ax.imshow(np.sum(self.radial_avg_split[self.sub_ind][self.img_ind].data, axis=2), cmap="gray")
@@ -2087,7 +2095,11 @@ class radial_profile_analysis():
                 plt.close(fig)
                         
                 self.sub_num_pixel.append(self.data_num_pixel)
-                self.sub_pos_pixel.append(self.data_pos_pixel)        
+                self.sub_pos_pixel.append(self.data_pos_pixel)
+                if 'datacube' in locals():
+                    del datacube
+                import gc
+                gc.collect()
             self.num_lv_pixel_split.append(self.sub_num_pixel)
             self.pos_lv_pixel_split.append(self.sub_pos_pixel)
             self.clustered_lv_split.append(self.sub_clustered_lv)

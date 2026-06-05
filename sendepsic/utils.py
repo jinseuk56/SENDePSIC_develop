@@ -329,7 +329,7 @@ def mmad_score(df_data, experimental_cols, target_structures=None):
 # modified by J. Ryu
 class ConcaveHull(object):
     def __init__(self, points, k, use_gpu=False):
-        if hasattr(points, 'device'):  # cupy array
+        if hasattr(points, 'device') and points.device != 'cpu':  # cupy array
             self.data_set = points
             use_gpu = True
         elif isinstance(points, np.ndarray):
@@ -365,7 +365,7 @@ class ConcaveHull(object):
 
     @staticmethod
     def dist_pt_to_group(a, b):
-        if hasattr(a, 'device'):
+        if hasattr(a, 'device') and a.device != 'cpu':
             import cupy as cp
             xp = cp
         else:
@@ -374,7 +374,7 @@ class ConcaveHull(object):
 
     @staticmethod
     def get_lowest_latitude_index(points):
-        if hasattr(points, 'device'):
+        if hasattr(points, 'device') and points.device != 'cpu':
             import cupy as cp
             xp = cp
         else:
@@ -384,7 +384,7 @@ class ConcaveHull(object):
 
     @staticmethod
     def norm_array(v):
-        if hasattr(v, 'device'):
+        if hasattr(v, 'device') and v.device != 'cpu':
             import cupy as cp
             xp = cp
         else:
@@ -394,7 +394,7 @@ class ConcaveHull(object):
 
     @staticmethod
     def norm(v):
-        if hasattr(v, 'device'):
+        if hasattr(v, 'device') and v.device != 'cpu':
             import cupy as cp
             xp = cp
         else:
