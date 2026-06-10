@@ -96,10 +96,11 @@ class feature_extract():
                 print(self.original_data_shape)
                 print("Spectrum length: %d"%self.num_dim)
         self._default_figure_save_path = None
+        self.global_save = False
 
 
 
-    def set_figure_save_path(self, path):
+    def set_figure_save_path(self, path=None, global_save=False):
         """Set a default base path for saving all figures.
         
         When set, all visualization methods will automatically save figures
@@ -114,6 +115,7 @@ class feature_extract():
             optional; .png is used by default. Pass None to revert to
             notebook display mode.
         """
+        self.global_save = global_save
         self._default_figure_save_path = path
         if path is not None:
             print(f"Default figure save path set to: {path}")
@@ -151,7 +153,8 @@ class feature_extract():
 
 
     def ini_DR(self, method="nmf", num_comp=5, result_visual=True, intensity_range="absolute", tolerance=1E-4, max_iteration=2000, save_path=None):
-        _eff_save = save_path if save_path is not None else (os.path.join(self._default_figure_save_path, 'ini_DR') if self._default_figure_save_path is not None else None)
+        base_dir = self._default_figure_save_path if self._default_figure_save_path is not None else (os.getcwd() if self.global_save else None)
+        _eff_save = save_path if save_path is not None else (os.path.join(base_dir, 'ini_DR') if base_dir is not None else None)
         self.DR_num_comp = num_comp
         if method=="nmf":
             self.DR = NMF(n_components=num_comp, init="nndsvda", solver="mu", max_iter=max_iteration, verbose=result_visual, tol=tolerance)

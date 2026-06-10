@@ -360,9 +360,19 @@ class radial_profile_analysis():
         self.boundary_method = boundary_method
         self.fill_method = fill_method
         self.concave_ratio = concave_ratio
-        self._default_figure_save_path = None
+        self.global_save = False
+        self._custom_figure_save_path = None
         
         print("data loaded.")
+
+
+    @property
+    def _default_figure_save_path(self):
+        return self._custom_figure_save_path if self._custom_figure_save_path is not None else os.getcwd()
+
+    @_default_figure_save_path.setter
+    def _default_figure_save_path(self, value):
+        self._custom_figure_save_path = value
 
 
     def set_figure_save_path(self, path=None, global_save=False):
@@ -382,13 +392,11 @@ class radial_profile_analysis():
         """
 
         self.global_save = global_save
-
-        self._default_figure_save_path = os.getcwd()
-        if path != None:
-            self._default_figure_save_path = path
+        self._custom_figure_save_path = path
+        if path is not None:
             print(f"Default figure save path set to: {path}")
         else:
-            print(f"Default figure save path set to: {os.getcwd()}")
+            print("Default figure save path cleared. Figures will display in notebook.")
 
 
     def print_colormaps(self, save_figure=False):
